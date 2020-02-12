@@ -1,6 +1,6 @@
 ## Diagram syntax reference
 
-Having already [gotten started](n00b-gettingStarted.md), existing diagram syntax documentation was easy enough to follow even for a n00b like me..
+Now that you have [gotten started](n00b-gettingStarted.md) you can explore the different diagram types:
 
 - [Flowchart](flowchart.md)
 - [Sequence diagram](sequenceDiagram.md)
