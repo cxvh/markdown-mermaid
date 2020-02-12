@@ -76,6 +76,10 @@ export const commit = function(msg) {
 };
 
 export const branch = function(name) {
+  if (Object.entries(commits).length === 0 && commits.constructor === Object) {
+    logger.debug('doing initial commit before creating a brach');
+    this.commit();
+  }
   branches[name] = head != null ? head.id : null;
   logger.debug('in createBranch');
 };
@@ -108,8 +112,18 @@ export const merge = function(otherBranch) {
 
 export const checkout = function(branch) {
   logger.debug('in checkout');
+  if (Object.entries(commits).length === 0 && commits.constructor === Object) {
+    logger.debug('doing initial commit before checkout of a brach');
+    this.commit();
+  }
   curBranch = branch;
-  const id = branches[curBranch];
+  //check if branch already exist
+  let id = branches[curBranch];
+  if (id === undefined) {
+    logger.debug('creating new branch from checkout');
+    this.branch(curBranch);
+    id = branches[curBranch];
+  }
   head = commits[id];
 };
 

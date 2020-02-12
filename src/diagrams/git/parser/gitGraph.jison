@@ -23,7 +23,7 @@
 "branch"                        return 'BRANCH';
 "merge"                         return 'MERGE';
 "reset"                         return 'RESET';
-"checkout"                         return 'CHECKOUT';
+"checkout"                      return 'CHECKOUT';
 "LR"                            return 'DIR';
 "BT"                            return 'DIR';
 ":"                             return ':';
