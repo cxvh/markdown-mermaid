@@ -1,52 +1,5 @@
 # Advanced mermaid usage
 
-## splitting the mermaid code
-In the [previous example](n00b-gettingStarted.md), mermaid was embedded directly in a web page.
-
-A more condensed html code can be achieved by embedding the mermaid diagram in its own .js file.
-
-Using the previous example with two diagrams, the two corresponding .js files can be referenced as follows:
-
-
-```
-<html>
-  <body>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-    <script>mermaid.initialize({startOnLoad:true});</script>
-
-    Here is one mermaid diagram:
-    <div class="mermaid">
-      MyFirstDiagram.js
-    </div>
-
-    And here is another:
-    <div class="mermaid">
-      MySecondDiagram.js
-    </div>
-  </body>
-</html>
-```
-
-Where the content of the file `MyFirstDiagram.js` is:
-```
-graph TD
-A[Client] --> B[Load Balancer]
-B --> C[Server1]
-B --> D[Server2]
-```
-
-And the content of the file `MySecondDiagram.js` is:
-```
-graph TD
-A[Client] -->|tcp_123| B(Load Balancer)
-B -->|tcp_456| C[Server1]
-B -->|tcp_456| D[Server2]
-```
-
-*Note* In this example, no mermaid version is referenced in the path to the mermaid renderer. We automatically get the latest version.
-
----
-
 ## mermaid configuration options
 
 Often, using mermaid is as easy as just writing the diagram code.
@@ -97,6 +50,8 @@ To achieve this we:
 
 ```
 The new setting was defined in a variable `config`, which we referenced as we initialized the mermaid renderer. The variable could have any permissible name.
+
+*Note* In this example, no mermaid version is referenced in the path to the mermaid renderer. We automatically get the latest version.
 
 ## config options - example 2
 Some configuration options have their own attributes, i.e. specific configuration values are set through hiearchical levels.
