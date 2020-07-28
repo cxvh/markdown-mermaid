@@ -7,11 +7,21 @@
 /* lexical grammar */
 %lex
 %x string generic struct
+// Directive states
+%x open_directive type_directive arg_directive
+
 
 %%
-\%\%[^\n]*\n*           /* do nothing */
-\n+                     return 'NEWLINE';
-\s+                     /* skip whitespace */
+\%\%\{                                                          { this.begin('open_directive'); return 'open_directive'; }
+<open_directive>((?:(?!\}\%\%)[^:.])*)                          { this.begin('type_directive'); return 'type_directive'; }
+<type_directive>":"                                             { this.popState(); this.begin('arg_directive'); return ':'; }
+<type_directive,arg_directive>\}\%\%                            { this.popState(); this.popState(); return 'close_directive'; }
+<arg_directive>((?:(?!\}\%\%).|\n)*)                            return 'arg_directive';
+\%\%(?!\{)*[^\n]*                                                 /* skip comments */
+[^\}]\%\%*[^\n]*                                                 /* skip comments */
+\%\%*[^\n]*[\n]*           /* do nothing */
+[\n]+                     return 'NEWLINE';
+[\s]+                     /* skip whitespace */
 "classDiagram-v2"       return 'CLASS_DIAGRAM';
 "classDiagram"          return 'CLASS_DIAGRAM';
 [\{]                    { this.begin("struct"); /*console.log('Starting struct');*/return 'STRUCT_START';}
@@ -24,7 +34,7 @@
 
 
 "class"               return 'CLASS';
-//"click"               return 'CLICK';
+//"click"             return 'CLICK';
 "callback"            return 'CALLBACK';
 "link"                return 'LINK';
 "<<"                  return 'ANNOTATION_START';
@@ -130,14 +140,21 @@
 
 %% /* language grammar */
 
-mermaidDoc: graphConfig;
+mermaidDoc
+    : graphConfig
+    | directive mermaidDoc
+    ;
 
 graphConfig
-    : CLASS_DIAGRAM NEWLINE statements EOF
+    : NEWLINE
+    | graphConfig NEWLINE
+    | NEWLINE CLASS_DIAGRAM NEWLINE statements EOF
+    | CLASS_DIAGRAM NEWLINE statements EOF
     ;
 
 statements
     : statement
+    | NEWLINE statement
     | statement NEWLINE
     | statement NEWLINE statements
     ;
@@ -149,6 +166,11 @@ className
     | alphaNumToken GENERICTYPE { $$=$1+'~'+$2; }
     ;
 
+directive
+    : openDirective typeDirective closeDirective 'NEWLINE'
+    | openDirective typeDirective ':' argDirective closeDirective 'NEWLINE'
+    ;
+
 statement
     : relationStatement       { yy.addRelation($1); }
     | relationStatement LABEL { $1.title =  yy.cleanupLabel($2); yy.addRelation($1);        }
@@ -156,6 +178,7 @@ statement
     | methodStatement
     | annotationStatement
     | clickStatement
+    | directive
     ;
 
 classStatement
@@ -219,4 +242,21 @@ textToken      : textNoTagsToken | TAGSTART | TAGEND | '=='  | '--' | PCT | DEFA
 textNoTagsToken: alphaNumToken | SPACE | MINUS | keywords ;
 
 alphaNumToken  : UNICODE_TEXT | NUM | ALPHA;
+
+openDirective
+  : open_directive { yy.parseDirective('%%{', 'open_directive'); }
+  ;
+
+typeDirective
+  : type_directive { yy.parseDirective($1, 'type_directive'); }
+  ;
+
+argDirective
+  : arg_directive { $1 = $1.trim().replace(/'/g, '"'); yy.parseDirective($1, 'arg_directive'); }
+  ;
+
+closeDirective
+  : close_directive { yy.parseDirective('}%%', 'close_directive', 'class'); }
+  ;
+
 %%
