@@ -1,17 +1,37 @@
-<!-- <Remove this in the future> -->
-| :mega: :mega: :mega: |
-| :----: |
-| * If you're upgrading from a version __< v8.2.0__, there are [non-backward-compatible changes](http://mermaid-js.github.io/mermaid/#/usage?id=to-enable-click-event-and-tags-in-nodes) related to security issues. Default behaviour of the library might have changed for your implementation.|
-<!-- </Remove this in the future> -->
-
 # mermaid [![Build Status](https://travis-ci.org/mermaid-js/mermaid.svg?branch=master)](https://travis-ci.org/mermaid-js/mermaid) [![NPM](https://img.shields.io/npm/v/mermaid)](https://www.npmjs.com/package/mermaid) [![Coverage Status](https://coveralls.io/repos/github/mermaid-js/mermaid/badge.svg?branch=master)](https://coveralls.io/github/mermaid-js/mermaid?branch=master) [![Join our Slack!](https://img.shields.io/static/v1?message=join%20chat&color=9cf&logo=slack&label=slack)](https://join.slack.com/t/mermaid-talk/shared_invite/enQtNzc4NDIyNzk4OTAyLWVhYjQxOTI2OTg4YmE1ZmJkY2Y4MTU3ODliYmIwOTY3NDJlYjA0YjIyZTdkMDMyZTUwOGI0NjEzYmEwODcwOTE) [![This project is using Percy.io for visual regression testing.](https://percy.io/static/images/percy-badge.svg)](https://percy.io/Mermaid/mermaid)
+
+![banner](./img/header.png)
+**Edit this Page** [![N|Solid](./docs/assets/img/GitHub-Mark-32px.png)](https://github.com/mermaid-js/mermaid/blob/develop/docs/README.md)
+
+:trophy: **Mermaid was nominated and won the [JS Open Source Awards (2019)](https://osawards.com/javascript/2019) in the category "The most exciting use of technology"!!!**
+
+**Thanks to all involved, people committing pull requests, people answering questions and special thanks to Tyler Long who is helping me maintain the project 🙏**
+
+## About
+
 <!-- <Main description> -->
-__Generate diagrams, charts, graphs or flows from markdown-like text via javascript.__
-See our [documentation](http://mermaid-js.github.io/mermaid/) and start simplifying yours. Play in our [live editor](https://mermaidjs.github.io/mermaid-live-editor/) or jump straight to the [installation and usage](http://mermaid-js.github.io/mermaid/#/usage).
+Mermaid is a Javascript based diagramming and charting tool that uses Markdown-inspired text definitions and a renderer to create and modify complex diagrams.  The main purpose of Mermaid is to help documentation catch up with development.
+
+> Doc-Rot is a Catch-22 that Mermaid helps to solve.
+
+Diagramming and documentation costs precious developer time and gets outdated quickly.
+But not having diagrams or docs ruins productivity and hurts organizational learning. <br/>
+Mermaid addresses this problem by cutting the time, effort and tooling that is required to create modifiable diagrams and charts, for smarter and more reusable content.
+The text definitions for Mermaid diagrams allows for it to be updated easily, it can also be made part of production scripts (and other pieces of code).
+So less time needs be spent on documenting, as a separate and laborious task. <br/>
+Even non-programmers can create diagrams through the [Mermaid Live Editor](https://github.com/mermaidjs/mermaid-live-editor). <br/>
+[Tutorials](./docs/getting-started/Tutorials.md) has video tutorials.
+Use Mermaid with your favorite applications, check out the list of [Integrations and Usages of Mermaid](./docs/overview/integrations.md).
+
+For a more detailed introduction to Mermaid and some of its more basic uses, look to the [Beginner's Guide](./docs/overview/n00b-overview.md) and [Usage](./docs/getting-started/usage.md).
+
+🌐 [CDN](https://unpkg.com/mermaid/) | 📖 [Documentation](https://mermaidjs.github.io) | 🙌 [Contribution](https://github.com/mermaid-js/mermaid/blob/develop/CONTRIBUTING.md) | 📜 [Changelog](./docs/tutorials-and-community/CHANGELOG.md)
+
 <!-- </Main description> -->
 
-:trophy: _"The most exciting use of technology"_ - [JS Open Source Awards (2019)](https://osawards.com/javascript/#nominees)
+## Examples
 
+__The following are some examples of the diagrams, charts and graphs that can be made using Mermaid and the Markdown-inspired text specific to it. Click here jump into the [text syntax](https://mermaid-js.github.io/mermaid/#/n00b-syntaxReference).__
 <table>
 <!-- <Flowchart> -->
 <tr><td colspan=2 align="center">
@@ -133,7 +153,7 @@ Crash --> [*]
 pie
 "Dogs" : 386
 "Cats" : 85
-"Rats" : 15 
+"Rats" : 15
 </pre></td>
     <td align="center">
         <img src="https://raw.githubusercontent.com/mermaid-js/mermaid/master/img/gray-pie.png" />
@@ -149,20 +169,45 @@ pie
     <td colspan="2" align="center"><i>Coming soon!</i></td>
 </tr>
 <!-- </Git> -->
+<!-- <Journey> -->
+<tr><td colspan=2 align="center">
+    <b>User Journey</b><br />
+    [<a href="http://mermaid-js.github.io/mermaid/#/user-journey">docs</a> - <a href="https://mermaidjs.github.io/mermaid-live-editor/#/edit/eyJjb2RlIjoic3RhdGVEaWFncmFtXG4gICAgWypdIC0tPiBTdGlsbFxuICAgIFN0aWxsIC0tPiBbKl1cbiAgICBTdGlsbCAtLT4gTW92aW5nXG4gICAgTW92aW5nIC0tPiBTdGlsbFxuICAgIE1vdmluZyAtLT4gQ3Jhc2hcbiAgICBDcmFzaCAtLT4gWypdIiwibWVybWFpZCI6eyJ0aGVtZSI6ImRlZmF1bHQifX0">live editor</a>]
+</td></tr>
+<tr>
+  <td>
+  <pre>
+  journey
+    title My working day
+    section Go to work
+      Make tea: 5: Me
+      Go upstairs: 3: Me
+      Do work: 1: Me, Cat
+    section Go home
+      Go downstairs: 5: Me
+      Sit down: 3: Me
+</pre></td>
+  <td align="center">
+    <img alt="User Journey Diagram" src="img/gray-user-journey.png" />
+  </td>
+</tr>
+<!-- </Journey> -->
+
 </table>
 
-## Related projects 
+## Related projects
 
-- [Command Line Interface](https://github.com/mermaid-js/mermaid.cli)
+- [Command Line Interface](https://github.com/mermaid-js/mermaid-cli)
 - [Live Editor](https://github.com/mermaid-js/mermaid-live-editor)
+- [HTTP Server](https://github.com/TomWright/mermaid-server)
 
-# Contributors [![Help wanted](https://img.shields.io/github/labels/mermaid-js/mermaid/Help%20wanted!)](https://github.com/mermaid-js/mermaid/issues?q=is%3Aissue+is%3Aopen+label%3A%22Help+wanted%21%22) [![Contributors](https://img.shields.io/github/contributors/mermaid-js/mermaid)](https://github.com/mermaid-js/mermaid/graphs/contributors) [![Commits](https://img.shields.io/github/commit-activity/m/mermaid-js/mermaid)](https://github.com/mermaid-js/mermaid/graphs/contributors)
+## Contributors [![Help wanted](https://img.shields.io/github/labels/mermaid-js/mermaid/Help%20wanted!)](https://github.com/mermaid-js/mermaid/issues?q=is%3Aissue+is%3Aopen+label%3A%22Help+wanted%21%22) [![Contributors](https://img.shields.io/github/contributors/mermaid-js/mermaid)](https://github.com/mermaid-js/mermaid/graphs/contributors) [![Commits](https://img.shields.io/github/commit-activity/m/mermaid-js/mermaid)](https://github.com/mermaid-js/mermaid/graphs/contributors)
 
 Mermaid is a growing community and is always accepting new contributors. There's a lot of different ways to help out and we're always looking for extra hands! Look at [this issue](https://github.com/mermaid-js/mermaid/issues/866) if you want to know where to start helping out.
 
 Detailed information about how to contribute can be found in the [contribution guide](CONTRIBUTING.md)
 
-# Appreciation
+## Appreciation
 A quick note from Knut Sveidqvist:
 >*Many thanks to the [d3](http://d3js.org/) and [dagre-d3](https://github.com/cpettitt/dagre-d3) projects for providing the graphical layout and drawing libraries!*
 >*Thanks also to the [js-sequence-diagram](http://bramp.github.io/js-sequence-diagrams) project for usage of the grammar for the sequence diagrams. Thanks to Jessica Peter for inspiration and starting point for gantt rendering.*

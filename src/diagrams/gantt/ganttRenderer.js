@@ -1,7 +1,17 @@
-import * as d3 from 'd3';
-
+import {
+  select,
+  scaleTime,
+  min,
+  max,
+  scaleLinear,
+  interpolateHcl,
+  axisBottom,
+  timeFormat
+} from 'd3';
 import { parser } from './parser/gantt';
+import common from '../common/common';
 import ganttDb from './ganttDb';
+import { configureSvgSize } from '../../utils';
 
 parser.yy = ganttDb;
 
@@ -44,19 +54,17 @@ export const draw = function(text, id) {
   // Set height based on number of tasks
   const h = taskArray.length * (conf.barHeight + conf.barGap) + 2 * conf.topPadding;
 
-  elem.setAttribute('height', '100%');
   // Set viewBox
   elem.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
-  const svg = d3.select(`[id="${id}"]`);
+  const svg = select(`[id="${id}"]`);
 
   // Set timescale
-  const timeScale = d3
-    .scaleTime()
+  const timeScale = scaleTime()
     .domain([
-      d3.min(taskArray, function(d) {
+      min(taskArray, function(d) {
         return d.startTime;
       }),
-      d3.max(taskArray, function(d) {
+      max(taskArray, function(d) {
         return d.endTime;
       })
     ])
@@ -72,10 +80,25 @@ export const draw = function(text, id) {
 
   categories = checkUnique(categories);
 
-  makeGant(taskArray, w, h);
-  if (typeof conf.useWidth !== 'undefined') {
-    elem.setAttribute('width', w);
+  function taskCompare(a, b) {
+    const taskA = a.startTime;
+    const taskB = b.startTime;
+    let result = 0;
+    if (taskA > taskB) {
+      result = 1;
+    } else if (taskA < taskB) {
+      result = -1;
+    }
+    return result;
   }
+
+  // Sort the task array using the above taskCompare() so that
+  // tasks are created based on their order of startTime
+  taskArray.sort(taskCompare);
+
+  makeGant(taskArray, w, h);
+
+  configureSvgSize(svg, h, w, conf.useMaxWidth);
 
   svg
     .append('text')
@@ -90,11 +113,10 @@ export const draw = function(text, id) {
     const topPadding = conf.topPadding;
     const leftPadding = conf.leftPadding;
 
-    const colorScale = d3
-      .scaleLinear()
+    const colorScale = scaleLinear()
       .domain([0, categories.length])
       .range(['#00B9FA', '#F95002'])
-      .interpolate(d3.interpolateHcl);
+      .interpolate(interpolateHcl);
 
     makeGrid(leftPadding, topPadding, pageWidth, pageHeight);
     drawRects(tasks, gap, topPadding, leftPadding, barHeight, colorScale, pageWidth, pageHeight);
@@ -112,6 +134,8 @@ export const draw = function(text, id) {
       .append('rect')
       .attr('x', 0)
       .attr('y', function(d, i) {
+        // Ignore the incoming i value and use our order instead
+        i = d.order;
         return i * theGap + theTopPad - 2;
       })
       .attr('width', function() {
@@ -153,6 +177,8 @@ export const draw = function(text, id) {
         return timeScale(d.startTime) + theSidePad;
       })
       .attr('y', function(d, i) {
+        // Ignore the incoming i value and use our order instead
+        i = d.order;
         return i * theGap + theTopPad;
       })
       .attr('width', function(d) {
@@ -256,6 +282,8 @@ export const draw = function(text, id) {
         }
       })
       .attr('y', function(d, i) {
+        // Ignore the incoming i value and use our order instead
+        i = d.order;
         return i * theGap + conf.barHeight / 2 + (conf.fontSize / 2 - 2) + theTopPad;
       })
       .attr('text-height', theBarHeight)
@@ -326,10 +354,9 @@ export const draw = function(text, id) {
   }
 
   function makeGrid(theSidePad, theTopPad, w, h) {
-    let xAxis = d3
-      .axisBottom(timeScale)
+    let xAxis = axisBottom(timeScale)
       .tickSize(-h + theTopPad + conf.gridLineStartPadding)
-      .tickFormat(d3.timeFormat(parser.yy.getAxisFormat() || conf.axisFormat || '%Y-%m-%d'));
+      .tickFormat(timeFormat(parser.yy.getAxisFormat() || conf.axisFormat || '%Y-%m-%d'));
 
     svg
       .append('g')
@@ -358,7 +385,7 @@ export const draw = function(text, id) {
       .data(numOccurances)
       .enter()
       .append(function(d) {
-        const rows = d[0].split(/<br\s*\/?>/gi);
+        const rows = d[0].split(common.lineBreakRegex);
         const dy = -(rows.length - 1) / 2;
 
         const svgLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
@@ -396,17 +423,25 @@ export const draw = function(text, id) {
   }
 
   function drawToday(theSidePad, theTopPad, w, h) {
+    const todayMarker = ganttDb.getTodayMarker();
+    if (todayMarker === 'off') {
+      return;
+    }
+
     const todayG = svg.append('g').attr('class', 'today');
-
     const today = new Date();
+    const todayLine = todayG.append('line');
 
-    todayG
-      .append('line')
+    todayLine
       .attr('x1', timeScale(today) + theSidePad)
       .attr('x2', timeScale(today) + theSidePad)
       .attr('y1', conf.titleTopMargin)
       .attr('y2', h - conf.titleTopMargin)
       .attr('class', 'today');
+
+    if (todayMarker !== '') {
+      todayLine.attr('style', todayMarker.replace(/,/g, ';'));
+    }
   }
 
   // from this stackexchange question: http://stackoverflow.com/questions/1890203/unique-for-arrays-in-javascript

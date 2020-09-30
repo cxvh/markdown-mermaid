@@ -1,7 +1,7 @@
 /**
  * This is the api to be used when optionally handling the integration with the web page, instead of using the default integration provided by mermaid.js.
  *
- * The core of this api is the [**render**](https://github.com/knsv/mermaid/blob/master/docs/mermaidAPI.md#render) function which, given a graph
+ * The core of this api is the [**render**](Setup.md?id=render) function which, given a graph
  * definition as text, renders the graph/diagram and returns an svg element for the graph.
  *
  * It is is then up to the user of the API to make use of the svg, either insert it somewhere in the page or do something completely different.
@@ -10,13 +10,22 @@
  *
  * @name mermaidAPI
  */
-import * as d3 from 'd3';
-import scope from 'scope-css';
+import Stylis from 'stylis';
+import { select } from 'd3';
 import pkg from '../package.json';
-import { setConfig, getConfig } from './config';
+// import * as configApi from './config';
+// // , {
+// //   setConfig,
+// //   configApi.getConfig,
+// //   configApi.updateSiteConfig,
+// //   configApi.setSiteConfig,
+// //   configApi.getSiteConfig,
+// //   configApi.defaultConfig
+// // }
 import { logger, setLogLevel } from './logger';
-import utils from './utils';
+import utils, { assignWithDepth } from './utils';
 import flowRenderer from './diagrams/flowchart/flowRenderer';
+import flowRendererV2 from './diagrams/flowchart/flowRenderer-v2';
 import flowParser from './diagrams/flowchart/parser/flow';
 import flowDb from './diagrams/flowchart/flowDb';
 import sequenceRenderer from './diagrams/sequence/sequenceRenderer';
@@ -26,329 +35,39 @@ import ganttRenderer from './diagrams/gantt/ganttRenderer';
 import ganttParser from './diagrams/gantt/parser/gantt';
 import ganttDb from './diagrams/gantt/ganttDb';
 import classRenderer from './diagrams/class/classRenderer';
+import classRendererV2 from './diagrams/class/classRenderer-v2';
 import classParser from './diagrams/class/parser/classDiagram';
 import classDb from './diagrams/class/classDb';
 import stateRenderer from './diagrams/state/stateRenderer';
+import stateRendererV2 from './diagrams/state/stateRenderer-v2';
 import stateParser from './diagrams/state/parser/stateDiagram';
 import stateDb from './diagrams/state/stateDb';
 import gitGraphRenderer from './diagrams/git/gitGraphRenderer';
 import gitGraphParser from './diagrams/git/parser/gitGraph';
 import gitGraphAst from './diagrams/git/gitGraphAst';
 import infoRenderer from './diagrams/info/infoRenderer';
+import errorRenderer from './errorRenderer';
 import infoParser from './diagrams/info/parser/info';
 import infoDb from './diagrams/info/infoDb';
 import pieRenderer from './diagrams/pie/pieRenderer';
 import pieParser from './diagrams/pie/parser/pie';
 import pieDb from './diagrams/pie/pieDb';
-
-const themes = {};
-for (const themeName of ['default', 'forest', 'dark', 'neutral']) {
-  themes[themeName] = require(`./themes/${themeName}/index.scss`);
-}
-
-/**
- * These are the default options which can be overridden with the initialization call like so:
- * **Example 1:**
- * <pre>
- * mermaid.initialize({
- *   flowchart:{
- *     htmlLabels: false
- *   }
- * });
- * </pre>
- *
- * **Example 2:**
- * <pre>
- * &lt;script>
- *   var config = {
- *     startOnLoad:true,
- *     flowchart:{
- *       useMaxWidth:true,
- *       htmlLabels:true,
- *       curve:'cardinal',
- *     },
- *
- *     securityLevel:'loose',
- *   };
- *   mermaid.initialize(config);
- * &lt;/script>
- * </pre>
- * A summary of all options and their defaults is found [here](https://github.com/knsv/mermaid/blob/master/docs/mermaidAPI.md#mermaidapi-configuration-defaults). A description of each option follows below.
- *
- * @name Configuration
- */
-const config = {
-  /** theme , the CSS style sheet
-   *
-   * **theme** - Choose one of the built-in themes:
-   *    * default
-   *    * forest
-   *    * dark
-   *    * neutral.
-   * To disable any pre-defined mermaid theme, use "null".
-   *
-   * **themeCSS** - Use your own CSS. This overrides **theme**.
-   * <pre>
-   *  "theme": "forest",
-   *  "themeCSS": ".node rect { fill: red; }"
-   * </pre>
-   */
-  theme: 'default',
-  themeCSS: undefined,
-  /* **maxTextSize** - The maximum allowed size of the users text diamgram */
-  maxTextSize: 50000,
-
-  /**
-   * **fontFamily** The font to be used for the rendered diagrams. Default value is \"trebuchet ms\", verdana, arial;
-   */
-  fontFamily: '"trebuchet ms", verdana, arial;',
-
-  /**
-   * This option decides the amount of logging to be used.
-   *    * debug: 1
-   *    * info: 2
-   *    * warn: 3
-   *    * error: 4
-   *    * fatal: (**default**) 5
-   */
-  logLevel: 5,
-
-  /**
-   * Sets the level of trust to be used on the parsed diagrams.
-   *  * **strict**: (**default**) tags in text are encoded, click functionality is disabeled
-   *  * **loose**: tags in text are allowed, click functionality is enabled
-   */
-  securityLevel: 'strict',
-
-  /**
-   * This options controls whether or mermaid starts when the page loads
-   * **Default value true**.
-   */
-  startOnLoad: true,
-
-  /**
-   * This options controls whether or arrow markers in html code will be absolute paths or
-   * an anchor, #. This matters if you are using base tag settings.
-   * **Default value false**.
-   */
-  arrowMarkerAbsolute: false,
-
-  /**
-   * The object containing configurations specific for flowcharts
-   */
-  flowchart: {
-    /**
-     * Flag for setting whether or not a html tag should be used for rendering labels
-     * on the edges.
-     * **Default value true**.
-     */
-    htmlLabels: true,
-
-    /**
-     * Defines the spacing between nodes on the same level (meaning horizontal spacing for
-     * TB or BT graphs, and the vertical spacing for LR as well as RL graphs).
-     * **Default value 50**.
-     */
-    nodeSpacing: 50,
-
-    /**
-     * Defines the spacing between nodes on different levels (meaning vertical spacing for
-     * TB or BT graphs, and the horizontal spacing for LR as well as RL graphs).
-     * **Default value 50**.
-     */
-    rankSpacing: 50,
-
-    /**
-     * How mermaid renders curves for flowcharts. Possible values are
-     *   * basis
-     *   * linear **default**
-     *   * cardinal
-     */
-    curve: 'linear'
-  },
-
-  /**
-   * The object containing configurations specific for sequence diagrams
-   */
-  sequence: {
-    /**
-     * margin to the right and left of the sequence diagram.
-     * **Default value 50**.
-     */
-    diagramMarginX: 50,
-
-    /**
-     * margin to the over and under the sequence diagram.
-     * **Default value 10**.
-     */
-    diagramMarginY: 10,
-
-    /**
-     * Margin between actors.
-     * **Default value 50**.
-     */
-    actorMargin: 50,
-
-    /**
-     * Width of actor boxes
-     * **Default value 150**.
-     */
-    width: 150,
-
-    /**
-     * Height of actor boxes
-     * **Default value 65**.
-     */
-    height: 65,
-
-    /**
-     * Margin around loop boxes
-     * **Default value 10**.
-     */
-    boxMargin: 10,
-
-    /**
-     * margin around the text in loop/alt/opt boxes
-     * **Default value 5**.
-     */
-    boxTextMargin: 5,
-
-    /**
-     * margin around notes.
-     * **Default value 10**.
-     */
-    noteMargin: 10,
-
-    /**
-     * Space between messages.
-     * **Default value 35**.
-     */
-    messageMargin: 35,
-
-    /**
-     * mirror actors under diagram.
-     * **Default value true**.
-     */
-    mirrorActors: true,
-
-    /**
-     * Depending on css styling this might need adjustment.
-     * Prolongs the edge of the diagram downwards.
-     * **Default value 1**.
-     */
-    bottomMarginAdj: 1,
-
-    /**
-     * when this flag is set the height and width is set to 100% and is then scaling with the
-     * available space if not the absolute space required is used.
-     * **Default value true**.
-     */
-    useMaxWidth: true,
-
-    /**
-     * This will display arrows that start and begin at the same node as right angles, rather than a curve
-     * **Default value false**.
-     */
-    rightAngles: false,
-    /**
-     * This will show the node numbers
-     * **Default value false**.
-     */
-    showSequenceNumbers: false
-  },
-
-  /**
-   * The object containing configurations specific for gantt diagrams*
-   */
-  gantt: {
-    /**
-     * Margin top for the text over the gantt diagram
-     * **Default value 25**.
-     */
-    titleTopMargin: 25,
-
-    /**
-     * The height of the bars in the graph
-     * **Default value 20**.
-     */
-    barHeight: 20,
-
-    /**
-     * The margin between the different activities in the gantt diagram.
-     * **Default value 4**.
-     */
-    barGap: 4,
-
-    /**
-     *  Margin between title and gantt diagram and between axis and gantt diagram.
-     * **Default value 50**.
-     */
-    topPadding: 50,
-
-    /**
-     *  The space allocated for the section name to the left of the activities.
-     * **Default value 75**.
-     */
-    leftPadding: 75,
-
-    /**
-     *  Vertical starting position of the grid lines.
-     * **Default value 35**.
-     */
-    gridLineStartPadding: 35,
-
-    /**
-     *  Font size ...
-     * **Default value 11**.
-     */
-    fontSize: 11,
-
-    /**
-     * font family ...
-     * **Default value '"Open-Sans", "sans-serif"'**.
-     */
-    fontFamily: '"Open-Sans", "sans-serif"',
-
-    /**
-     * The number of alternating section styles.
-     * **Default value 4**.
-     */
-    numberSectionStyles: 4,
-
-    /**
-     * Datetime format of the axis. This might need adjustment to match your locale and preferences
-     * **Default value '%Y-%m-%d'**.
-     */
-    axisFormat: '%Y-%m-%d'
-  },
-  class: {},
-  git: {},
-  state: {
-    dividerMargin: 10,
-    sizeUnit: 5,
-    padding: 8,
-    textHeight: 10,
-    titleShift: -15,
-    noteMargin: 10,
-    forkWidth: 70,
-    forkHeight: 7,
-    // Used
-    miniPadding: 2,
-    // Font size factor, this is used to guess the width of the edges labels before rendering by dagre
-    // layout. This might need updating if/when switching font
-    fontSizeFactor: 5.02,
-    fontSize: 24,
-    labelHeight: 16,
-    edgeLengthFactor: '20',
-    compositTitleSize: 35,
-    radius: 5
-  }
-};
-
-setLogLevel(config.logLevel);
-setConfig(config);
+import erDb from './diagrams/er/erDb';
+import erParser from './diagrams/er/parser/erDiagram';
+import erRenderer from './diagrams/er/erRenderer';
+import journeyParser from './diagrams/user-journey/parser/journey';
+import journeyDb from './diagrams/user-journey/journeyDb';
+import journeyRenderer from './diagrams/user-journey/journeyRenderer';
+import * as configApi from './config';
+import getStyles from './styles';
+import theme from './themes';
 
 function parse(text) {
+  const graphInit = utils.detectInit(text);
+  if (graphInit) {
+    reinitialize(graphInit);
+    logger.debug('reinit ', graphInit);
+  }
   const graphType = utils.detectType(text);
   let parser;
 
@@ -359,6 +78,11 @@ function parse(text) {
       parser.parser.yy = gitGraphAst;
       break;
     case 'flowchart':
+      flowDb.clear();
+      parser = flowParser;
+      parser.parser.yy = flowDb;
+      break;
+    case 'flowchart-v2':
       flowDb.clear();
       parser = flowParser;
       parser.parser.yy = flowDb;
@@ -375,7 +99,15 @@ function parse(text) {
       parser = classParser;
       parser.parser.yy = classDb;
       break;
+    case 'classDiagram':
+      parser = classParser;
+      parser.parser.yy = classDb;
+      break;
     case 'state':
+      parser = stateParser;
+      parser.parser.yy = stateDb;
+      break;
+    case 'stateDiagram':
       parser = stateParser;
       parser.parser.yy = stateDb;
       break;
@@ -389,14 +121,25 @@ function parse(text) {
       parser = pieParser;
       parser.parser.yy = pieDb;
       break;
+    case 'er':
+      logger.debug('er');
+      parser = erParser;
+      parser.parser.yy = erDb;
+      break;
+    case 'journey':
+      logger.debug('Journey');
+      parser = journeyParser;
+      parser.parser.yy = journeyDb;
+      break;
   }
-
+  parser.parser.yy.graphType = graphType;
   parser.parser.yy.parseError = (str, hash) => {
     const error = { str, hash };
     throw error;
   };
 
   parser.parse(text);
+  return parser;
 }
 
 export const encodeEntities = function(text) {
@@ -456,26 +199,45 @@ export const decodeEntities = function(text) {
  *  });
  *```
  * @param id the id of the element to be rendered
- * @param txt the graph definition
+ * @param _txt the graph definition
  * @param cb callback which is called after rendering is finished with the svg code as inparam.
  * @param container selector to element in which a div with the graph temporarily will be inserted. In one is
  * provided a hidden div will be inserted in the body of the page instead. The element will be removed when rendering is
  * completed.
  */
 const render = function(id, _txt, cb, container) {
-  // Check the maximum allowed text size
+  configApi.reset();
   let txt = _txt;
-  if (_txt.length > config.maxTextSize) {
+  const graphInit = utils.detectInit(txt);
+  if (graphInit) {
+    configApi.addDirective(graphInit);
+  }
+  // else {
+  //   configApi.reset();
+  //   const siteConfig = configApi.getSiteConfig();
+  //   configApi.addDirective(siteConfig);
+  // }
+  // console.warn('Render fetching config');
+
+  const cnf = configApi.getConfig();
+  // console.warn('Render with config after adding new directives', cnf.sequence);
+  // console.warn(
+  //   'Render with config after adding new directives',
+  //   cnf.fontFamily,
+  //   cnf.themeVariables.fontFamily
+  // );
+  // Check the maximum allowed text size
+  if (_txt.length > cnf.maxTextSize) {
     txt = 'graph TB;a[Maximum text size in diagram exceeded];style a fill:#faa';
   }
 
   if (typeof container !== 'undefined') {
     container.innerHTML = '';
 
-    d3.select(container)
+    select(container)
       .append('div')
       .attr('id', 'd' + id)
-      .attr('style', 'font-family: ' + config.fontFamily)
+      .attr('style', 'font-family: ' + cnf.fontFamily)
       .append('svg')
       .attr('id', id)
       .attr('width', '100%')
@@ -488,10 +250,10 @@ const render = function(id, _txt, cb, container) {
     }
     const element = document.querySelector('#' + 'd' + id);
     if (element) {
-      element.innerHTML = '';
+      element.remove();
     }
 
-    d3.select('body')
+    select('body')
       .append('div')
       .attr('id', 'd' + id)
       .append('svg')
@@ -504,117 +266,148 @@ const render = function(id, _txt, cb, container) {
   window.txt = txt;
   txt = encodeEntities(txt);
 
-  const element = d3.select('#d' + id).node();
+  const element = select('#d' + id).node();
   const graphType = utils.detectType(txt);
 
   // insert inline style into svg
   const svg = element.firstChild;
   const firstChild = svg.firstChild;
 
-  // pre-defined theme
-  let style = themes[config.theme];
-  if (style === undefined) {
-    style = '';
-  }
-
+  let userStyles = '';
   // user provided theme CSS
-  if (config.themeCSS !== undefined) {
-    style += `\n${config.themeCSS}`;
+  if (cnf.themeCSS !== undefined) {
+    userStyles += `\n${cnf.themeCSS}`;
   }
   // user provided theme CSS
-  if (config.fontFamily !== undefined) {
-    style += `\n:root { --mermaid-font-family: ${config.fontFamily}}`;
+  if (cnf.fontFamily !== undefined) {
+    userStyles += `\n:root { --mermaid-font-family: ${cnf.fontFamily}}`;
   }
   // user provided theme CSS
-  if (config.altFontFamily !== undefined) {
-    style += `\n:root { --mermaid-alt-font-family: ${config.altFontFamily}}`;
+  if (cnf.altFontFamily !== undefined) {
+    userStyles += `\n:root { --mermaid-alt-font-family: ${cnf.altFontFamily}}`;
   }
 
   // classDef
-  if (graphType === 'flowchart') {
+  if (graphType === 'flowchart' || graphType === 'flowchart-v2' || graphType === 'graph') {
     const classes = flowRenderer.getClasses(txt);
-    console.log('classes in mermaidApi', classes);
     for (const className in classes) {
-      style += `\n.${className} > * { ${classes[className].styles.join(
+      userStyles += `\n.${className} > * { ${classes[className].styles.join(
         ' !important; '
       )} !important; }`;
       if (classes[className].textStyles) {
-        style += `\n.${className} tspan { ${classes[className].textStyles.join(
+        userStyles += `\n.${className} tspan { ${classes[className].textStyles.join(
           ' !important; '
         )} !important; }`;
       }
     }
-    console.log(style);
   }
+
+  // logger.warn(cnf.themeVariables);
+
+  const stylis = new Stylis();
+  const rules = stylis(`#${id}`, getStyles(graphType, userStyles, cnf.themeVariables));
 
   const style1 = document.createElement('style');
-  style1.innerHTML = scope(style, `#${id}`);
+  style1.innerHTML = rules;
   svg.insertBefore(style1, firstChild);
 
-  const style2 = document.createElement('style');
-  const cs = window.getComputedStyle(svg);
-  style2.innerHTML = `#${id} {
-    color: ${cs.color};
-    font: ${cs.font};
-  }`;
-  svg.insertBefore(style2, firstChild);
+  // Verify that the generated svgs are ok before removing this
 
-  switch (graphType) {
-    case 'git':
-      config.flowchart.arrowMarkerAbsolute = config.arrowMarkerAbsolute;
-      gitGraphRenderer.setConf(config.git);
-      gitGraphRenderer.draw(txt, id, false);
-      break;
-    case 'flowchart':
-      config.flowchart.arrowMarkerAbsolute = config.arrowMarkerAbsolute;
-      flowRenderer.setConf(config.flowchart);
-      flowRenderer.draw(txt, id, false);
-      break;
-    case 'sequence':
-      config.sequence.arrowMarkerAbsolute = config.arrowMarkerAbsolute;
-      if (config.sequenceDiagram) {
-        // backwards compatibility
-        sequenceRenderer.setConf(Object.assign(config.sequence, config.sequenceDiagram));
-        console.error(
-          '`mermaid config.sequenceDiagram` has been renamed to `config.sequence`. Please update your mermaid config.'
-        );
-      } else {
-        sequenceRenderer.setConf(config.sequence);
-      }
-      sequenceRenderer.draw(txt, id);
-      break;
-    case 'gantt':
-      config.gantt.arrowMarkerAbsolute = config.arrowMarkerAbsolute;
-      ganttRenderer.setConf(config.gantt);
-      ganttRenderer.draw(txt, id);
-      break;
-    case 'class':
-      config.class.arrowMarkerAbsolute = config.arrowMarkerAbsolute;
-      classRenderer.setConf(config.class);
-      classRenderer.draw(txt, id);
-      break;
-    case 'state':
-      // config.class.arrowMarkerAbsolute = config.arrowMarkerAbsolute;
-      stateRenderer.setConf(config.state);
-      stateRenderer.draw(txt, id);
-      break;
-    case 'info':
-      config.class.arrowMarkerAbsolute = config.arrowMarkerAbsolute;
-      infoRenderer.setConf(config.class);
-      infoRenderer.draw(txt, id, pkg.version);
-      break;
-    case 'pie':
-      config.class.arrowMarkerAbsolute = config.arrowMarkerAbsolute;
-      pieRenderer.setConf(config.class);
-      pieRenderer.draw(txt, id, pkg.version);
-      break;
+  // const style2 = document.createElement('style');
+  // const cs = window.getComputedStyle(svg);
+  // style2.innerHTML = `#d${id} * {
+  //   color: ${cs.color};
+  //   // font: ${cs.font};
+  //   // font-family: Arial;
+  //   // font-size: 24px;
+  // }`;
+  // svg.insertBefore(style2, firstChild);
+
+  try {
+    switch (graphType) {
+      case 'git':
+        cnf.flowchart.arrowMarkerAbsolute = cnf.arrowMarkerAbsolute;
+        gitGraphRenderer.setConf(cnf.git);
+        gitGraphRenderer.draw(txt, id, false);
+        break;
+      case 'flowchart':
+        cnf.flowchart.arrowMarkerAbsolute = cnf.arrowMarkerAbsolute;
+        flowRenderer.setConf(cnf.flowchart);
+        flowRenderer.draw(txt, id, false);
+        break;
+      case 'flowchart-v2':
+        cnf.flowchart.arrowMarkerAbsolute = cnf.arrowMarkerAbsolute;
+        flowRendererV2.setConf(cnf.flowchart);
+        flowRendererV2.draw(txt, id, false);
+        break;
+      case 'sequence':
+        cnf.sequence.arrowMarkerAbsolute = cnf.arrowMarkerAbsolute;
+        if (cnf.sequenceDiagram) {
+          // backwards compatibility
+          sequenceRenderer.setConf(Object.assign(cnf.sequence, cnf.sequenceDiagram));
+          console.error(
+            '`mermaid config.sequenceDiagram` has been renamed to `config.sequence`. Please update your mermaid config.'
+          );
+        } else {
+          sequenceRenderer.setConf(cnf.sequence);
+        }
+        sequenceRenderer.draw(txt, id);
+        break;
+      case 'gantt':
+        cnf.gantt.arrowMarkerAbsolute = cnf.arrowMarkerAbsolute;
+        ganttRenderer.setConf(cnf.gantt);
+        ganttRenderer.draw(txt, id);
+        break;
+      case 'class':
+        cnf.class.arrowMarkerAbsolute = cnf.arrowMarkerAbsolute;
+        classRenderer.setConf(cnf.class);
+        classRenderer.draw(txt, id);
+        break;
+      case 'classDiagram':
+        cnf.class.arrowMarkerAbsolute = cnf.arrowMarkerAbsolute;
+        classRendererV2.setConf(cnf.class);
+        classRendererV2.draw(txt, id);
+        break;
+      case 'state':
+        cnf.class.arrowMarkerAbsolute = cnf.arrowMarkerAbsolute;
+        stateRenderer.setConf(cnf.state);
+        stateRenderer.draw(txt, id);
+        break;
+      case 'stateDiagram':
+        cnf.class.arrowMarkerAbsolute = cnf.arrowMarkerAbsolute;
+        stateRendererV2.setConf(cnf.state);
+        stateRendererV2.draw(txt, id);
+        break;
+      case 'info':
+        cnf.class.arrowMarkerAbsolute = cnf.arrowMarkerAbsolute;
+        infoRenderer.setConf(cnf.class);
+        infoRenderer.draw(txt, id, pkg.version);
+        break;
+      case 'pie':
+        cnf.class.arrowMarkerAbsolute = cnf.arrowMarkerAbsolute;
+        pieRenderer.setConf(cnf.pie);
+        pieRenderer.draw(txt, id, pkg.version);
+        break;
+      case 'er':
+        erRenderer.setConf(cnf.er);
+        erRenderer.draw(txt, id, pkg.version);
+        break;
+      case 'journey':
+        journeyRenderer.setConf(cnf.journey);
+        journeyRenderer.draw(txt, id, pkg.version);
+        break;
+    }
+  } catch (e) {
+    // errorRenderer.setConf(cnf.class);
+    errorRenderer.draw(id, pkg.version);
+    throw e;
   }
 
-  d3.select(`[id="${id}"]`)
+  select(`[id="${id}"]`)
     .selectAll('foreignobject > *')
     .attr('xmlns', 'http://www.w3.org/1999/xhtml');
 
-  // if (config.arrowMarkerAbsolute) {
+  // if (cnf.arrowMarkerAbsolute) {
   //   url =
   //     window.location.protocol +
   //     '//' +
@@ -626,9 +419,9 @@ const render = function(id, _txt, cb, container) {
   // }
 
   // Fix for when the base tag is used
-  let svgCode = d3.select('#d' + id).node().innerHTML;
-
-  if (!config.arrowMarkerAbsolute || config.arrowMarkerAbsolute === 'false') {
+  let svgCode = select('#d' + id).node().innerHTML;
+  logger.debug('cnf.arrowMarkerAbsolute', cnf.arrowMarkerAbsolute);
+  if (!cnf.arrowMarkerAbsolute || cnf.arrowMarkerAbsolute === 'false') {
     svgCode = svgCode.replace(/marker-end="url\(.*?#/g, 'marker-end="url(#', 'g');
   }
 
@@ -637,12 +430,14 @@ const render = function(id, _txt, cb, container) {
   if (typeof cb !== 'undefined') {
     switch (graphType) {
       case 'flowchart':
+      case 'flowchart-v2':
         cb(svgCode, flowDb.bindFunctions);
         break;
       case 'gantt':
         cb(svgCode, ganttDb.bindFunctions);
         break;
       case 'class':
+      case 'classDiagram':
         cb(svgCode, classDb.bindFunctions);
         break;
       default:
@@ -652,9 +447,9 @@ const render = function(id, _txt, cb, container) {
     logger.debug('CB = undefined!');
   }
 
-  const node = d3.select('#d' + id).node();
+  const node = select('#d' + id).node();
   if (node !== null && typeof node.remove === 'function') {
-    d3.select('#d' + id)
+    select('#d' + id)
       .node()
       .remove();
   }
@@ -662,63 +457,169 @@ const render = function(id, _txt, cb, container) {
   return svgCode;
 };
 
-const setConf = function(cnf) {
-  // Top level initially mermaid, gflow, sequenceDiagram and gantt
-  const lvl1Keys = Object.keys(cnf);
-  for (let i = 0; i < lvl1Keys.length; i++) {
-    if (typeof cnf[lvl1Keys[i]] === 'object' && cnf[lvl1Keys[i]] != null) {
-      const lvl2Keys = Object.keys(cnf[lvl1Keys[i]]);
+let currentDirective = {};
 
-      for (let j = 0; j < lvl2Keys.length; j++) {
-        logger.debug('Setting conf ', lvl1Keys[i], '-', lvl2Keys[j]);
-        if (typeof config[lvl1Keys[i]] === 'undefined') {
-          config[lvl1Keys[i]] = {};
-        }
-        logger.debug(
-          'Setting config: ' +
-            lvl1Keys[i] +
-            ' ' +
-            lvl2Keys[j] +
-            ' to ' +
-            cnf[lvl1Keys[i]][lvl2Keys[j]]
-        );
-        config[lvl1Keys[i]][lvl2Keys[j]] = cnf[lvl1Keys[i]][lvl2Keys[j]];
+const parseDirective = function(p, statement, context, type) {
+  try {
+    if (statement !== undefined) {
+      statement = statement.trim();
+      switch (context) {
+        case 'open_directive':
+          currentDirective = {};
+          break;
+        case 'type_directive':
+          currentDirective.type = statement.toLowerCase();
+          break;
+        case 'arg_directive':
+          currentDirective.args = JSON.parse(statement);
+          break;
+        case 'close_directive':
+          handleDirective(p, currentDirective, type);
+          currentDirective = null;
+          break;
       }
-    } else {
-      config[lvl1Keys[i]] = cnf[lvl1Keys[i]];
     }
+  } catch (error) {
+    logger.error(
+      `Error while rendering sequenceDiagram directive: ${statement} jison context: ${context}`
+    );
+    logger.error(error.message);
   }
 };
 
-function initialize(options) {
-  logger.debug('Initializing mermaidAPI ', pkg.version);
+const handleDirective = function(p, directive, type) {
+  logger.debug(`Directive type=${directive.type} with args:`, directive.args);
+  switch (directive.type) {
+    case 'init':
+    case 'initialize': {
+      ['config'].forEach(prop => {
+        if (typeof directive.args[prop] !== 'undefined') {
+          if (type === 'flowchart-v2') {
+            type = 'flowchart';
+          }
+          directive.args[type] = directive.args[prop];
+          delete directive.args[prop];
+        }
+      });
 
-  // Update default config with options supplied at initialization
-  if (typeof options === 'object') {
-    setConf(options);
+      reinitialize(directive.args);
+      configApi.addDirective(directive.args);
+      break;
+    }
+    case 'wrap':
+    case 'nowrap':
+      if (p && p['setWrap']) {
+        p.setWrap(directive.type === 'wrap');
+      }
+      break;
+    default:
+      logger.warn(
+        `Unhandled directive: source: '%%{${directive.type}: ${JSON.stringify(
+          directive.args ? directive.args : {}
+        )}}%%`,
+        directive
+      );
+      break;
   }
-  setConfig(config);
-  setLogLevel(config.logLevel);
+};
+
+function updateRendererConfigs(conf) {
+  gitGraphRenderer.setConf(conf.git);
+  flowRenderer.setConf(conf.flowchart);
+  flowRendererV2.setConf(conf.flowchart);
+  if (typeof conf['sequenceDiagram'] !== 'undefined') {
+    sequenceRenderer.setConf(assignWithDepth(conf.sequence, conf['sequenceDiagram']));
+  }
+  sequenceRenderer.setConf(conf.sequence);
+  ganttRenderer.setConf(conf.gantt);
+  classRenderer.setConf(conf.class);
+  stateRenderer.setConf(conf.state);
+  stateRendererV2.setConf(conf.state);
+  infoRenderer.setConf(conf.class);
+  pieRenderer.setConf(conf.class);
+  erRenderer.setConf(conf.er);
+  journeyRenderer.setConf(conf.journey);
+  errorRenderer.setConf(conf.class);
 }
 
-// function getConfig () {
-//   console.warn('get config')
-//   return config
-// }
+function reinitialize() {
+  // `mermaidAPI.reinitialize: v${pkg.version}`,
+  //   JSON.stringify(options),
+  //   options.themeVariables.primaryColor;
+  // // if (options.theme && theme[options.theme]) {
+  // //   options.themeVariables = theme[options.theme].getThemeVariables(options.themeVariables);
+  // // }
+  // // Set default options
+  // const config =
+  //   typeof options === 'object' ? configApi.setConfig(options) : configApi.getSiteConfig();
+  // updateRendererConfigs(config);
+  // setLogLevel(config.logLevel);
+  // logger.debug('mermaidAPI.reinitialize: ', config);
+}
 
-const mermaidAPI = {
+function initialize(options) {
+  // console.warn(`mermaidAPI.initialize: v${pkg.version} `, options);
+
+  // Handle legacy location of font-family configuration
+  if (options && options.fontFamily) {
+    if (!options.themeVariables) {
+      options.themeVariables = { fontFamily: options.fontFamily };
+    } else {
+      if (!options.themeVariables.fontFamily) {
+        options.themeVariables = { fontFamily: options.fontFamily };
+      }
+    }
+  }
+  // Set default options
+  configApi.setSiteConfigDelta(options);
+
+  if (options && options.theme && theme[options.theme]) {
+    // Todo merge with user options
+    options.themeVariables = theme[options.theme].getThemeVariables(options.themeVariables);
+  } else {
+    if (options) options.themeVariables = theme.default.getThemeVariables(options.themeVariables);
+  }
+
+  const config =
+    typeof options === 'object' ? configApi.setSiteConfig(options) : configApi.getSiteConfig();
+
+  updateRendererConfigs(config);
+  setLogLevel(config.logLevel);
+  // logger.debug('mermaidAPI.initialize: ', config);
+}
+
+const mermaidAPI = Object.freeze({
   render,
   parse,
+  parseDirective,
   initialize,
-  getConfig
-};
+  reinitialize,
+  getConfig: configApi.getConfig,
+  setConfig: configApi.setConfig,
+  getSiteConfig: configApi.getSiteConfig,
+  updateSiteConfig: configApi.updateSiteConfig,
+  reset: () => {
+    // console.warn('reset');
+    configApi.reset();
+    // const siteConfig = configApi.getSiteConfig();
+    // updateRendererConfigs(siteConfig);
+  },
+  globalReset: () => {
+    configApi.reset(configApi.defaultConfig);
+    updateRendererConfigs(configApi.getConfig());
+  },
+  defaultConfig: configApi.defaultConfig
+});
+
+setLogLevel(configApi.getConfig().logLevel);
+configApi.reset(configApi.getConfig());
 
 export default mermaidAPI;
 /**
  * ## mermaidAPI configuration defaults
- * <pre>
  *
- * &lt;script>
+ * ```html
+ * <script>
  *   var config = {
  *     theme:'default',
  *     logLevel:'fatal',
@@ -726,7 +627,19 @@ export default mermaidAPI;
  *     startOnLoad:true,
  *     arrowMarkerAbsolute:false,
  *
+ *     er:{
+ *       diagramPadding:20,
+ *       layoutDirection:'TB',
+ *       minEntityWidth:100,
+ *       minEntityHeight:75,
+ *       entityPadding:15,
+ *       stroke:'gray',
+ *       fill:'honeydew',
+ *       fontSize:12,
+ *       useMaxWidth:true,
+ *     },
  *     flowchart:{
+ *       diagramPadding:8,
  *       htmlLabels:true,
  *       curve:'linear',
  *     },
@@ -740,6 +653,7 @@ export default mermaidAPI;
  *       boxTextMargin:5,
  *       noteMargin:10,
  *       messageMargin:35,
+ *       messageAlign:'center',
  *       mirrorActors:true,
  *       bottomMarginAdj:1,
  *       useMaxWidth:true,
@@ -760,6 +674,6 @@ export default mermaidAPI;
  *     }
  *   };
  *   mermaid.initialize(config);
- * &lt;/script>
- *</pre>
+ * </script>
+ * ```
  */

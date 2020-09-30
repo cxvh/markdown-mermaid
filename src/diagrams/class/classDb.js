@@ -1,17 +1,21 @@
-import * as d3 from 'd3';
+import { select } from 'd3';
 import { logger } from '../../logger';
-import { getConfig } from '../../config';
+import * as configApi from '../../config';
+import common from '../common/common';
 import utils from '../../utils';
+import mermaidAPI from '../../mermaidAPI';
 
 const MERMAID_DOM_ID_PREFIX = 'classid-';
-
-const config = getConfig();
 
 let relations = [];
 let classes = {};
 let classCounter = 0;
 
 let funs = [];
+
+export const parseDirective = function(statement, context, type) {
+  mermaidAPI.parseDirective(this, statement, context, type);
+};
 
 const splitClassNameAndType = function(id) {
   let genericType = '';
@@ -20,6 +24,7 @@ const splitClassNameAndType = function(id) {
   if (id.indexOf('~') > 0) {
     let split = id.split('~');
     className = split[0];
+
     genericType = split[1];
   }
 
@@ -45,6 +50,7 @@ export const addClass = function(id) {
     annotations: [],
     domId: MERMAID_DOM_ID_PREFIX + classId.className + '-' + classCounter
   };
+
   classCounter++;
 };
 
@@ -168,6 +174,7 @@ export const setCssClass = function(ids, className) {
  * @param tooltip Tooltip for the clickable element
  */
 export const setLink = function(ids, linkStr, tooltip) {
+  const config = configApi.getConfig();
   ids.split(',').forEach(function(_id) {
     let id = _id;
     if (_id[0].match(/\d/)) id = MERMAID_DOM_ID_PREFIX + id;
@@ -175,7 +182,7 @@ export const setLink = function(ids, linkStr, tooltip) {
       classes[id].link = utils.formatUrl(linkStr, config);
 
       if (tooltip) {
-        classes[id].tooltip = utils.sanitize(tooltip, config);
+        classes[id].tooltip = common.sanitizeText(tooltip, config);
       }
     }
   });
@@ -191,11 +198,13 @@ export const setLink = function(ids, linkStr, tooltip) {
 export const setClickEvent = function(ids, functionName, tooltip) {
   ids.split(',').forEach(function(id) {
     setClickFunc(id, functionName, tooltip);
+    classes[id].haveCallback = true;
   });
   setCssClass(ids, 'clickable');
 };
 
 const setClickFunc = function(domId, functionName, tooltip) {
+  const config = configApi.getConfig();
   let id = domId;
   let elemId = lookUpDomId(id);
 
@@ -207,7 +216,7 @@ const setClickFunc = function(domId, functionName, tooltip) {
   }
   if (typeof classes[id] !== 'undefined') {
     if (tooltip) {
-      classes[id].tooltip = utils.sanitize(tooltip, config);
+      classes[id].tooltip = common.sanitizeText(tooltip, config);
     }
 
     funs.push(function() {
@@ -216,7 +225,7 @@ const setClickFunc = function(domId, functionName, tooltip) {
         elem.addEventListener(
           'click',
           function() {
-            window[functionName](elemId);
+            utils.runFunc(functionName, elemId);
           },
           false
         );
@@ -244,21 +253,20 @@ export const relationType = {
 };
 
 const setupToolTips = function(element) {
-  let tooltipElem = d3.select('.mermaidTooltip');
+  let tooltipElem = select('.mermaidTooltip');
   if ((tooltipElem._groups || tooltipElem)[0][0] === null) {
-    tooltipElem = d3
-      .select('body')
+    tooltipElem = select('body')
       .append('div')
       .attr('class', 'mermaidTooltip')
       .style('opacity', 0);
   }
 
-  const svg = d3.select(element).select('svg');
+  const svg = select(element).select('svg');
 
   const nodes = svg.selectAll('g.node');
   nodes
     .on('mouseover', function() {
-      const el = d3.select(this);
+      const el = select(this);
       const title = el.attr('title');
       // Dont try to draw a tooltip if no data is provided
       if (title === null) {
@@ -272,8 +280,8 @@ const setupToolTips = function(element) {
         .style('opacity', '.9');
       tooltipElem
         .html(el.attr('title'))
-        .style('left', rect.left + (rect.right - rect.left) / 2 + 'px')
-        .style('top', rect.top - 14 + document.body.scrollTop + 'px');
+        .style('left', window.scrollX + rect.left + (rect.right - rect.left) / 2 + 'px')
+        .style('top', window.scrollY + rect.top - 14 + document.body.scrollTop + 'px');
       el.classed('hover', true);
     })
     .on('mouseout', function() {
@@ -281,13 +289,15 @@ const setupToolTips = function(element) {
         .transition()
         .duration(500)
         .style('opacity', 0);
-      const el = d3.select(this);
+      const el = select(this);
       el.classed('hover', false);
     });
 };
 funs.push(setupToolTips);
 
 export default {
+  parseDirective,
+  getConfig: () => configApi.getConfig().class,
   addClass,
   bindFunctions,
   clear,

@@ -1,8 +1,10 @@
-import * as d3 from 'd3';
+import { line, curveBasis } from 'd3';
 import idCache from './id-cache.js';
 import stateDb from './stateDb';
 import utils from '../../utils';
+import common from '../common/common';
 import { getConfig } from '../../config';
+import { logger } from '../../logger';
 
 // let conf;
 
@@ -12,8 +14,9 @@ import { getConfig } from '../../config';
 export const drawStartState = g =>
   g
     .append('circle')
-    .style('stroke', 'black')
-    .style('fill', 'black')
+    // .style('stroke', 'black')
+    // .style('fill', 'black')
+    .attr('class', 'start-state')
     .attr('r', getConfig().state.sizeUnit)
     .attr('cx', getConfig().state.padding + getConfig().state.sizeUnit)
     .attr('cy', getConfig().state.padding + getConfig().state.sizeUnit);
@@ -239,8 +242,9 @@ export const addTitleAndBox = (g, stateDef, altBkg) => {
 
 const drawEndState = g => {
   g.append('circle')
-    .style('stroke', 'black')
-    .style('fill', 'white')
+    // .style('stroke', 'black')
+    // .style('fill', 'white')
+    .attr('class', 'end-state-outer')
     .attr('r', getConfig().state.sizeUnit + getConfig().state.miniPadding)
     .attr(
       'cx',
@@ -251,13 +255,16 @@ const drawEndState = g => {
       getConfig().state.padding + getConfig().state.sizeUnit + getConfig().state.miniPadding
     );
 
-  return g
-    .append('circle')
-    .style('stroke', 'black')
-    .style('fill', 'black')
-    .attr('r', getConfig().state.sizeUnit)
-    .attr('cx', getConfig().state.padding + getConfig().state.sizeUnit + 2)
-    .attr('cy', getConfig().state.padding + getConfig().state.sizeUnit + 2);
+  return (
+    g
+      .append('circle')
+      // .style('stroke', 'black')
+      // .style('fill', 'black')
+      .attr('class', 'end-state-inner')
+      .attr('r', getConfig().state.sizeUnit)
+      .attr('cx', getConfig().state.padding + getConfig().state.sizeUnit + 2)
+      .attr('cy', getConfig().state.padding + getConfig().state.sizeUnit + 2)
+  );
 };
 const drawForkJoinState = (g, stateDef) => {
   let width = getConfig().state.forkWidth;
@@ -280,7 +287,7 @@ const drawForkJoinState = (g, stateDef) => {
 
 export const drawText = function(elem, textData) {
   // Remove and ignore br:s
-  const nText = textData.text.replace(/<br\s*\/?>/gi, ' ');
+  const nText = textData.text.replace(common.lineBreakRegex, ' ');
 
   const textElem = elem.append('text');
   textElem.attr('x', textData.x);
@@ -308,7 +315,7 @@ const _drawLongText = (_text, x, y, g) => {
 
   let text = _text.replace(/\r\n/g, '<br/>');
   text = text.replace(/\n/g, '<br/>');
-  const lines = text.split(/<br\s*\/?>/gi);
+  const lines = text.split(common.lineBreakRegex);
 
   let tHeight = 1.25 * getConfig().state.noteMargin;
   for (const line of lines) {
@@ -331,10 +338,9 @@ const _drawLongText = (_text, x, y, g) => {
 };
 
 /**
- * Draws an actor in the diagram with the attaced line
- * @param center - The center of the the actor
- * @param pos The position if the actor in the liost of actors
- * @param description The text in the box
+ * Draws a note to the diagram
+ * @param text - The text of the given note.
+ * @param g - The element the note is attached to.
  */
 
 export const drawNote = (text, g) => {
@@ -391,12 +397,6 @@ export const drawState = function(elem, stateDef) {
   return stateInfo;
 };
 
-const getRows = s => {
-  let str = s.replace(/<br\s*\/?>/gi, '#br#');
-  str = str.replace(/\\n/g, '#br#');
-  return str.split('#br#');
-};
-
 let edgeCount = 0;
 export const drawEdge = function(elem, path, relation) {
   const getRelationType = function(type) {
@@ -418,15 +418,14 @@ export const drawEdge = function(elem, path, relation) {
   const lineData = path.points;
 
   // This is the accessor function we talked about above
-  const lineFunction = d3
-    .line()
+  const lineFunction = line()
     .x(function(d) {
       return d.x;
     })
     .y(function(d) {
       return d.y;
     })
-    .curve(d3.curveBasis);
+    .curve(curveBasis);
 
   const svgPath = elem
     .append('path')
@@ -455,12 +454,15 @@ export const drawEdge = function(elem, path, relation) {
 
     const { x, y } = utils.calcLabelPosition(path.points);
 
-    const rows = getRows(relation.title);
+    const rows = common.getRows(relation.title);
 
     // console.warn(rows);
 
     let titleHeight = 0;
     const titleRows = [];
+    let maxWidth = 0;
+    let minX = 0;
+
     for (let i = 0; i <= rows.length; i++) {
       const title = label
         .append('text')
@@ -469,27 +471,39 @@ export const drawEdge = function(elem, path, relation) {
         .attr('x', x)
         .attr('y', y + titleHeight);
 
+      const boundstmp = title.node().getBBox();
+      maxWidth = Math.max(maxWidth, boundstmp.width);
+      minX = Math.min(minX, boundstmp.x);
+
+      logger.info(boundstmp.x, x, y + titleHeight);
+
       if (titleHeight === 0) {
         const titleBox = title.node().getBBox();
         titleHeight = titleBox.height;
+        logger.info('Title height', titleHeight, y);
       }
       titleRows.push(title);
     }
 
+    let boxHeight = titleHeight * rows.length;
     if (rows.length > 1) {
-      const heightAdj = rows.length * titleHeight * 0.25;
+      const heightAdj = (rows.length - 1) * titleHeight * 0.5;
 
       titleRows.forEach((title, i) => title.attr('y', y + i * titleHeight - heightAdj));
+      boxHeight = titleHeight * rows.length;
     }
 
     const bounds = label.node().getBBox();
+
     label
       .insert('rect', ':first-child')
       .attr('class', 'box')
-      .attr('x', bounds.x - getConfig().state.padding / 2)
-      .attr('y', bounds.y - getConfig().state.padding / 2)
-      .attr('width', bounds.width + getConfig().state.padding)
-      .attr('height', bounds.height + getConfig().state.padding);
+      .attr('x', x - maxWidth / 2 - getConfig().state.padding / 2)
+      .attr('y', y - boxHeight / 2 - getConfig().state.padding / 2 - 3.5)
+      .attr('width', maxWidth + getConfig().state.padding)
+      .attr('height', boxHeight + getConfig().state.padding);
+
+    logger.info(bounds);
 
     //label.attr('transform', '0 -' + (bounds.y / 2));
 

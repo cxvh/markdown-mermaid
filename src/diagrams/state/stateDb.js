@@ -1,16 +1,90 @@
 import { logger } from '../../logger';
+import { generateId } from '../../utils';
+import mermaidAPI from '../../mermaidAPI';
+import * as configApi from '../../config';
+
+const clone = o => JSON.parse(JSON.stringify(o));
 
 let rootDoc = [];
+
+export const parseDirective = function(statement, context, type) {
+  mermaidAPI.parseDirective(this, statement, context, type);
+};
+
 const setRootDoc = o => {
   logger.info('Setting root doc', o);
+  // rootDoc = { id: 'root', doc: o };
   rootDoc = o;
 };
 
 const getRootDoc = () => rootDoc;
 
-const extract = doc => {
+const docTranslator = (parent, node, first) => {
+  if (node.stmt === 'relation') {
+    docTranslator(parent, node.state1, true);
+    docTranslator(parent, node.state2, false);
+  } else {
+    if (node.stmt === 'state') {
+      if (node.id === '[*]') {
+        node.id = first ? parent.id + '_start' : parent.id + '_end';
+        node.start = first;
+      }
+    }
+
+    if (node.doc) {
+      const doc = [];
+      // Check for concurrency
+      let i = 0;
+      let currentDoc = [];
+      for (i = 0; i < node.doc.length; i++) {
+        if (node.doc[i].type === 'divider') {
+          // debugger;
+          const newNode = clone(node.doc[i]);
+          newNode.doc = clone(currentDoc);
+          doc.push(newNode);
+          currentDoc = [];
+        } else {
+          currentDoc.push(node.doc[i]);
+        }
+      }
+
+      // If any divider was encountered
+      if (doc.length > 0 && currentDoc.length > 0) {
+        const newNode = {
+          stmt: 'state',
+          id: generateId(),
+          type: 'divider',
+          doc: clone(currentDoc)
+        };
+        doc.push(clone(newNode));
+        node.doc = doc;
+      }
+
+      node.doc.forEach(docNode => docTranslator(node, docNode, true));
+    }
+  }
+};
+const getRootDocV2 = () => {
+  docTranslator({ id: 'root' }, { id: 'root', doc: rootDoc }, true);
+  return { id: 'root', doc: rootDoc };
+};
+
+const extract = _doc => {
   // const res = { states: [], relations: [] };
+  let doc;
+  if (_doc.doc) {
+    doc = _doc.doc;
+  } else {
+    doc = _doc;
+  }
+  // let doc = root.doc;
+  // if (!doc) {
+  //   doc = root;
+  // }
+  logger.info(doc);
   clear();
+
+  logger.info('Extract', doc);
 
   doc.forEach(item => {
     if (item.stmt === 'state') {
@@ -65,6 +139,7 @@ export const addState = function(id, type, doc, descr, note) {
     }
   }
   if (descr) {
+    logger.info('Adding state ', id, descr);
     if (typeof descr === 'string') addDescription(id, descr.trim());
 
     if (typeof descr === 'object') {
@@ -80,6 +155,12 @@ export const clear = function() {
     root: newDoc()
   };
   currentDocument = documents.root;
+
+  currentDocument = documents.root;
+
+  startCnt = 0;
+  endCnt = 0; // eslint-disable-line
+  classes = [];
 };
 
 export const getState = function(id) {
@@ -145,6 +226,12 @@ const getDividerId = () => {
   return 'divider-id-' + dividerCnt;
 };
 
+let classes = [];
+
+const getClasses = () => classes;
+
+const getDirection = () => 'TB';
+
 export const relationType = {
   AGGREGATION: 0,
   EXTENSION: 1,
@@ -152,12 +239,18 @@ export const relationType = {
   DEPENDENCY: 3
 };
 
+const trimColon = str => (str && str[0] === ':' ? str.substr(1).trim() : str.trim());
+
 export default {
+  parseDirective,
+  getConfig: () => configApi.getConfig().state,
   addState,
   clear,
   getState,
   getStates,
   getRelations,
+  getClasses,
+  getDirection,
   addRelation,
   getDividerId,
   // addDescription,
@@ -167,5 +260,7 @@ export default {
   logDocuments,
   getRootDoc,
   setRootDoc,
-  extract
+  getRootDocV2,
+  extract,
+  trimColon
 };

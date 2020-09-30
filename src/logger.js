@@ -1,5 +1,5 @@
 import moment from 'moment-mini';
-
+//
 export const LEVELS = {
   debug: 1,
   info: 2,
@@ -16,7 +16,14 @@ export const logger = {
   fatal: () => {}
 };
 
-export const setLogLevel = function(level) {
+export const setLogLevel = function(level = 'fatal') {
+  if (isNaN(level)) {
+    level = level.toLowerCase();
+    if (LEVELS[level] !== undefined) {
+      level = LEVELS[level];
+    }
+  }
+  logger.trace = () => {};
   logger.debug = () => {};
   logger.info = () => {};
   logger.warn = () => {};

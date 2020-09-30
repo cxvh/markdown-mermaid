@@ -2,15 +2,20 @@
  *
  */
 import { logger } from '../../logger';
+import mermaidAPI from '../../mermaidAPI';
+import * as configApi from '../../config';
 
 let sections = {};
 let title = '';
+
+export const parseDirective = function(statement, context, type) {
+  mermaidAPI.parseDirective(this, statement, context, type);
+};
 
 const addSection = function(id, value) {
   if (typeof sections[id] === 'undefined') {
     sections[id] = value;
     logger.debug('Added new section :', id);
-    // console.log('Added new section:', id, value)
   }
 };
 const getSections = () => sections;
@@ -40,6 +45,8 @@ const clear = function() {
 // }
 
 export default {
+  parseDirective,
+  getConfig: () => configApi.getConfig().pie,
   addSection,
   getSections,
   cleanupValue,

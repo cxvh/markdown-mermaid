@@ -1,5 +1,5 @@
 import graphlib from 'graphlib';
-import * as d3 from 'd3';
+import { select, curveLinear, selectAll } from 'd3';
 
 import flowDb from './flowDb';
 import flow from './parser/flow';
@@ -8,7 +8,8 @@ import { getConfig } from '../../config';
 import dagreD3 from 'dagre-d3';
 import addHtmlLabel from 'dagre-d3/lib/label/add-html-label.js';
 import { logger } from '../../logger';
-import { interpolateToCurve, getStylesFromArray } from '../../utils';
+import common from '../common/common';
+import { interpolateToCurve, getStylesFromArray, configureSvgSize } from '../../utils';
 import flowChartShapes from './flowChartShapes';
 
 const conf = {};
@@ -25,7 +26,7 @@ export const setConf = function(cnf) {
  * @param g The graph that is to be drawn.
  */
 export const addVertices = function(vert, g, svgId) {
-  const svg = d3.select(`[id="${svgId}"]`);
+  const svg = select(`[id="${svgId}"]`);
   const keys = Object.keys(vert);
 
   // Iterate through each item in the vertex object (containing all the vertices found) in the graph definition
@@ -36,7 +37,7 @@ export const addVertices = function(vert, g, svgId) {
      * Variable for storing the classes for the vertex
      * @type {string}
      */
-    let classStr = '';
+    let classStr = 'default';
     if (vertex.classes.length > 0) {
       classStr = vertex.classes.join(' ');
     }
@@ -62,7 +63,7 @@ export const addVertices = function(vert, g, svgId) {
       const svgLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       svgLabel.setAttribute('style', styles.labelStyle.replace('color:', 'fill:'));
 
-      const rows = vertexText.split(/<br\s*\/?>/gi);
+      const rows = vertexText.split(common.lineBreakRegex);
 
       for (let j = 0; j < rows.length; j++) {
         const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
@@ -119,6 +120,9 @@ export const addVertices = function(vert, g, svgId) {
       case 'stadium':
         _shape = 'stadium';
         break;
+      case 'subroutine':
+        _shape = 'subroutine';
+        break;
       case 'cylinder':
         _shape = 'cylinder';
         break;
@@ -129,7 +133,8 @@ export const addVertices = function(vert, g, svgId) {
         _shape = 'rect';
     }
     // Add the node
-    g.setNode(vertex.id, {
+    logger.warn('Adding node', vertex.id, vertex.domId);
+    g.setNode(flowDb.lookUpDomId(vertex.id), {
       labelType: 'svg',
       labelStyle: styles.labelStyle,
       shape: _shape,
@@ -138,7 +143,7 @@ export const addVertices = function(vert, g, svgId) {
       ry: radious,
       class: classStr,
       style: styles.style,
-      id: vertex.id
+      id: flowDb.lookUpDomId(vertex.id)
     });
   });
 };
@@ -162,6 +167,12 @@ export const addEdges = function(edges, g) {
 
   edges.forEach(function(edge) {
     cnt++;
+
+    // Identify Link
+    var linkId = 'L-' + edge.start + '-' + edge.end;
+    var linkNameStart = 'LS-' + edge.start;
+    var linkNameEnd = 'LE-' + edge.end;
+
     const edgeData = {};
 
     // Set link type for rendering
@@ -202,11 +213,11 @@ export const addEdges = function(edges, g) {
     edgeData.labelStyle = labelStyle;
 
     if (typeof edge.interpolate !== 'undefined') {
-      edgeData.curve = interpolateToCurve(edge.interpolate, d3.curveLinear);
+      edgeData.curve = interpolateToCurve(edge.interpolate, curveLinear);
     } else if (typeof edges.defaultInterpolate !== 'undefined') {
-      edgeData.curve = interpolateToCurve(edges.defaultInterpolate, d3.curveLinear);
+      edgeData.curve = interpolateToCurve(edges.defaultInterpolate, curveLinear);
     } else {
-      edgeData.curve = interpolateToCurve(conf.curve, d3.curveLinear);
+      edgeData.curve = interpolateToCurve(conf.curve, curveLinear);
     }
 
     if (typeof edge.text === 'undefined') {
@@ -219,10 +230,10 @@ export const addEdges = function(edges, g) {
 
       if (getConfig().flowchart.htmlLabels) {
         edgeData.labelType = 'html';
-        edgeData.label = '<span class="edgeLabel">' + edge.text + '</span>';
+        edgeData.label = `<span id="L-${linkId}" class="edgeLabel L-${linkNameStart}' L-${linkNameEnd}">${edge.text}</span>`;
       } else {
         edgeData.labelType = 'text';
-        edgeData.label = edge.text.replace(/<br\s*\/?>/gi, '\n');
+        edgeData.label = edge.text.replace(common.lineBreakRegex, '\n');
 
         if (typeof edge.style === 'undefined') {
           edgeData.style = edgeData.style || 'stroke: #333; stroke-width: 1.5px;fill:none';
@@ -231,8 +242,13 @@ export const addEdges = function(edges, g) {
         edgeData.labelStyle = edgeData.labelStyle.replace('color:', 'fill:');
       }
     }
+
+    edgeData.id = linkId;
+    edgeData.class = linkNameStart + ' ' + linkNameEnd;
+    edgeData.minlen = edge.length || 1;
+
     // Add the edge to the graph
-    g.setEdge(edge.start, edge.end, edgeData, cnt);
+    g.setEdge(flowDb.lookUpDomId(edge.start), flowDb.lookUpDomId(edge.end), edgeData, cnt);
   });
 };
 
@@ -243,12 +259,16 @@ export const addEdges = function(edges, g) {
 export const getClasses = function(text) {
   logger.info('Extracting classes');
   flowDb.clear();
-  const parser = flow.parser;
-  parser.yy = flowDb;
+  try {
+    const parser = flow.parser;
+    parser.yy = flowDb;
 
-  // Parse the graph definition
-  parser.parse(text);
-  return flowDb.getClasses();
+    // Parse the graph definition
+    parser.parse(text);
+    return flowDb.getClasses();
+  } catch (e) {
+    return;
+  }
 };
 
 /**
@@ -259,18 +279,16 @@ export const getClasses = function(text) {
 export const draw = function(text, id) {
   logger.info('Drawing flowchart');
   flowDb.clear();
+  flowDb.setGen('gen-1');
   const parser = flow.parser;
   parser.yy = flowDb;
 
   // Parse the graph definition
-  try {
-    parser.parse(text);
-  } catch (err) {
-    logger.debug('Parsing failed');
-  }
-
-  console.log('Classes:', flowDb.getClasses());
-  console.log('Subgraphs:', flowDb.getSubGraphs());
+  // try {
+  parser.parse(text);
+  // } catch (err) {
+  // logger.debug('Parsing failed');
+  // }
 
   // Fetch the default direction, use TD if none was found
   let dir = flowDb.getDirection();
@@ -307,6 +325,7 @@ export const draw = function(text, id) {
 
   // Fetch the verices/nodes and edges/links from the parsed graph definition
   const vert = flowDb.getVertices();
+  logger.warn('Get vertices', vert);
 
   const edges = flowDb.getEdges();
 
@@ -314,10 +333,16 @@ export const draw = function(text, id) {
   for (i = subGraphs.length - 1; i >= 0; i--) {
     subG = subGraphs[i];
 
-    d3.selectAll('cluster').append('text');
+    selectAll('cluster').append('text');
 
     for (let j = 0; j < subG.nodes.length; j++) {
-      g.setParent(subG.nodes[j], subG.id);
+      logger.warn(
+        'Setting subgraph',
+        subG.nodes[j],
+        flowDb.lookUpDomId(subG.nodes[j]),
+        flowDb.lookUpDomId(subG.id)
+      );
+      g.setParent(flowDb.lookUpDomId(subG.nodes[j]), flowDb.lookUpDomId(subG.id));
     }
   }
   addVertices(vert, g, id);
@@ -369,37 +394,30 @@ export const draw = function(text, id) {
   };
 
   // Set up an SVG group so that we can translate the final graph.
-  const svg = d3.select(`[id="${id}"]`);
+  const svg = select(`[id="${id}"]`);
+  svg.attr('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+  logger.warn(g);
 
   // Run the renderer. This is what draws the final graph.
-  const element = d3.select('#' + id + ' g');
+  const element = select('#' + id + ' g');
   render(element, g);
 
   element.selectAll('g.node').attr('title', function() {
     return flowDb.getTooltip(this.id);
   });
 
-  const padding = 8;
+  const padding = conf.diagramPadding;
   const svgBounds = svg.node().getBBox();
   const width = svgBounds.width + padding * 2;
   const height = svgBounds.height + padding * 2;
-  logger.debug(
-    `new ViewBox 0 0 ${width} ${height}`,
-    `translate(${padding - g._label.marginx}, ${padding - g._label.marginy})`
-  );
 
-  if (conf.useMaxWidth) {
-    svg.attr('width', '100%');
-    svg.attr('style', `max-width: ${width}px;`);
-  } else {
-    svg.attr('height', height);
-    svg.attr('width', width);
-  }
+  configureSvgSize(svg, height, width, conf.useMaxWidth);
 
-  svg.attr('viewBox', `0 0 ${width} ${height}`);
-  svg
-    .select('g')
-    .attr('transform', `translate(${padding - g._label.marginx}, ${padding - svgBounds.y})`);
+  // Ensure the viewBox includes the whole svgBounds area with extra space for padding
+  const vBox = `${svgBounds.x - padding} ${svgBounds.y - padding} ${width} ${height}`;
+  logger.debug(`viewBox ${vBox}`);
+  svg.attr('viewBox', vBox);
 
   // Index nodes
   flowDb.indexNodes('subGraph' + i);
@@ -407,20 +425,22 @@ export const draw = function(text, id) {
   // reposition labels
   for (i = 0; i < subGraphs.length; i++) {
     subG = subGraphs[i];
-
     if (subG.title !== 'undefined') {
-      const clusterRects = document.querySelectorAll('#' + id + ' [id="' + subG.id + '"] rect');
-      const clusterEl = document.querySelectorAll('#' + id + ' [id="' + subG.id + '"]');
+      const clusterRects = document.querySelectorAll(
+        '#' + id + ' [id="' + flowDb.lookUpDomId(subG.id) + '"] rect'
+      );
+      const clusterEl = document.querySelectorAll(
+        '#' + id + ' [id="' + flowDb.lookUpDomId(subG.id) + '"]'
+      );
 
       const xPos = clusterRects[0].x.baseVal.value;
       const yPos = clusterRects[0].y.baseVal.value;
       const width = clusterRects[0].width.baseVal.value;
-      const cluster = d3.select(clusterEl[0]);
+      const cluster = select(clusterEl[0]);
       const te = cluster.select('.label');
       te.attr('transform', `translate(${xPos + width / 2}, ${yPos + 14})`);
       te.attr('id', id + 'Text');
 
-      console.log('Fixing subgraph', id, subG.id, subG.classes); // eslitn-disable-line
       for (let j = 0; j < subG.classes.length; j++) {
         clusterEl[0].classList.add(subG.classes[j]);
       }
@@ -428,7 +448,7 @@ export const draw = function(text, id) {
   }
 
   // Add label rects for non html labels
-  if (!conf.htmlLabels) {
+  if (!conf.htmlLabels || true) { // eslint-disable-line
     const labels = document.querySelectorAll('[id="' + id + '"] .edgeLabel .label');
     for (let k = 0; k < labels.length; k++) {
       const label = labels[k];
@@ -441,7 +461,7 @@ export const draw = function(text, id) {
       rect.setAttribute('ry', 0);
       rect.setAttribute('width', dim.width);
       rect.setAttribute('height', dim.height);
-      rect.setAttribute('style', 'fill:#e8e8e8;');
+      // rect.setAttribute('style', 'fill:#e8e8e8;');
 
       label.insertBefore(rect, label.firstChild);
     }
@@ -453,12 +473,15 @@ export const draw = function(text, id) {
     const vertex = vert[key];
 
     if (vertex.link) {
-      const node = d3.select('#' + id + ' [id="' + key + '"]');
+      const node = select('#' + id + ' [id="' + flowDb.lookUpDomId(key) + '"]');
       if (node) {
         const link = document.createElementNS('http://www.w3.org/2000/svg', 'a');
         link.setAttributeNS('http://www.w3.org/2000/svg', 'class', vertex.classes.join(' '));
         link.setAttributeNS('http://www.w3.org/2000/svg', 'href', vertex.link);
         link.setAttributeNS('http://www.w3.org/2000/svg', 'rel', 'noopener');
+        if (vertex.linkTarget) {
+          link.setAttributeNS('http://www.w3.org/2000/svg', 'target', vertex.linkTarget);
+        }
 
         const linkNode = node.insert(function() {
           return link;

@@ -26,16 +26,27 @@
 %x FLOATING_NOTE
 %x FLOATING_NOTE_ID
 %x struct
+%x open_directive
+%x type_directive
+%x arg_directive
+%x close_directive
 
 // A special state for grabbing text up to the first comment/newline
 %x LINE
 
 %%
+\%\%\{                                                          { this.begin('open_directive'); return 'open_directive'; }
+<open_directive>((?:(?!\}\%\%)[^:.])*)                          { this.begin('type_directive'); return 'type_directive'; }
+<type_directive>":"                                             { this.popState(); this.begin('arg_directive'); return ':'; }
+<type_directive,arg_directive>\}\%\%                            { this.popState(); this.popState(); return 'close_directive'; }
+<arg_directive>((?:(?!\}\%\%).|\n)*)                            return 'arg_directive';
+\%\%(?!\{)[^\n]*                                                /* skip comments */
+[^\}]\%\%[^\n]*                                                 /* skip comments */{ console.log('Crap after close'); }
 
 [\n]+                            return 'NL';
-\s+                              /* skip all whitespace */
-<ID,STATE,struct,LINE>((?!\n)\s)+       /* skip same-line whitespace */
-<INITIAL,ID,STATE,struct,LINE>\#[^\n]*  /* skip comments */
+[\s]+                              /* skip all whitespace */
+<ID,STATE,struct,LINE,open_directive,type_directive,arg_directive,close_directive>((?!\n)\s)+       /* skip same-line whitespace */
+<INITIAL,ID,STATE,struct,LINE,open_directive,type_directive,arg_directive,close_directive>\#[^\n]*  /* skip comments */
 \%%[^\n]*                        /* skip comments */
 
 "scale"\s+            { this.pushState('SCALE'); /* console.log('Got scale', yytext);*/ return 'scale'; }
@@ -71,6 +82,7 @@
 <NOTE_TEXT>\s*[^:;]+"end note"       { this.popState();/*console.log('Got NOTE_TEXT for note',yytext);*/yytext = yytext.slice(0,-8).trim();return 'NOTE_TEXT';}
 
 "stateDiagram"\s+                   { /*console.log('Got state diagram', yytext,'#');*/return 'SD'; }
+"stateDiagram-v2"\s+                   { /*console.log('Got state diagram', yytext,'#');*/return 'SD'; }
 "hide empty description"    { /*console.log('HIDE_EMPTY', yytext,'#');*/return 'HIDE_EMPTY'; }
 <INITIAL,struct>"[*]"                   { /*console.log('EDGE_STATE=',yytext);*/ return 'EDGE_STATE';}
 <INITIAL,struct>[^:\n\s\-\{]+                { /*console.log('=>ID=',yytext);*/ return 'ID';}
@@ -92,6 +104,7 @@
 start
 	: SPACE start
 	| NL start
+	| directive start
 	| SD document { /*console.warn('Root document', $2);*/ yy.setRootDoc($2);return $2; }
 	;
 
@@ -113,7 +126,7 @@ line
 
 statement
 	: idStatement { /*console.warn('got id and descr', $1);*/$$={ stmt: 'state', id: $1, type: 'default', description: ''};}
-	| idStatement DESCR { /*console.warn('got id and descr', $1, $2.trim());*/$$={ stmt: 'state', id: $1, type: 'default', description: $2.trim()};}
+	| idStatement DESCR { /*console.warn('got id and descr', $1, $2.trim());*/$$={ stmt: 'state', id: $1, type: 'default', description: yy.trimColon($2)};}
 	| idStatement '-->' idStatement
     {
         /*console.warn('got id', $1);yy.addRelation($1, $3);*/
@@ -164,6 +177,17 @@ statement
         $$={ stmt: 'state', id: $3.trim(), note:{position: $2.trim(), text: $4.trim()}};
     }
     | note NOTE_TEXT AS ID
+  	| directive
+    ;
+
+directive
+    : openDirective typeDirective closeDirective
+    | openDirective typeDirective ':' argDirective closeDirective
+    ;
+
+eol
+    : NL
+    | ';'
     ;
 
 idStatement
@@ -175,5 +199,21 @@ notePosition
     : left_of
     | right_of
     ;
+
+openDirective
+  : open_directive { yy.parseDirective('%%{', 'open_directive'); }
+  ;
+
+typeDirective
+  : type_directive { yy.parseDirective($1, 'type_directive'); }
+  ;
+
+argDirective
+  : arg_directive { $1 = $1.trim().replace(/'/g, '"'); yy.parseDirective($1, 'arg_directive'); }
+  ;
+
+closeDirective
+  : close_directive { yy.parseDirective('}%%', 'close_directive', 'state'); }
+  ;
 
 %%

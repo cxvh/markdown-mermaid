@@ -1,12 +1,14 @@
-import * as d3 from 'd3';
+import { select } from 'd3';
 import dagre from 'dagre';
 import graphlib from 'graphlib';
 import { logger } from '../../logger';
 import stateDb from './stateDb';
+import common from '../common/common';
 import { parser } from './parser/stateDiagram';
 // import idCache from './id-cache';
 import { drawState, addTitleAndBox, drawEdge } from './shapes';
 import { getConfig } from '../../config';
+import { configureSvgSize } from '../../utils';
 
 parser.yy = stateDb;
 
@@ -48,7 +50,7 @@ export const draw = function(text, id) {
   logger.debug('Rendering diagram ' + text);
 
   // Fetch the default direction, use TD if none was found
-  const diagram = d3.select(`[id='${id}']`);
+  const diagram = select(`[id='${id}']`);
   insertMarkers(diagram);
 
   // Layout graph, Create a new directed graph
@@ -74,37 +76,17 @@ export const draw = function(text, id) {
   const width = bounds.width + padding * 2;
   const height = bounds.height + padding * 2;
 
-  // diagram.attr('height', '100%');
-  // diagram.attr('style', `width: ${bounds.width * 3 + conf.padding * 2};`);
-  // diagram.attr('height', height);
+  // zoom in a bit
+  const svgWidth = width * 1.75;
+  configureSvgSize(diagram, height, svgWidth, conf.useMaxWidth);
 
-  // Zoom in a bit
-  diagram.attr('width', width * 1.75);
-  // diagram.attr('height', bounds.height * 3 + conf.padding * 2);
   diagram.attr(
     'viewBox',
     `${bounds.x - conf.padding}  ${bounds.y - conf.padding} ` + width + ' ' + height
   );
-  // diagram.attr('transform', `translate(, 0)`);
-
-  // diagram.attr(
-  //   'viewBox',
-  //   `${conf.padding * -1} ${conf.padding * -1} ` +
-  //     (bounds.width * 1.5 + conf.padding * 2) +
-  //     ' ' +
-  //     (bounds.height + conf.padding * 5)
-  // );
 };
 const getLabelWidth = text => {
   return text ? text.length * conf.fontSizeFactor : 1;
-};
-
-/* TODO: REMOVE DUPLICATION, SEE SHAPES */
-const getRows = s => {
-  if (!s) return 1;
-  let str = s.replace(/<br\s*\/?>/gi, '#br#');
-  str = str.replace(/\\n/g, '#br#');
-  return str.split('#br#');
 };
 
 const renderDoc = (doc, diagram, parentId, altBkg) => {
@@ -239,7 +221,7 @@ const renderDoc = (doc, diagram, parentId, altBkg) => {
       {
         relation: relation,
         width: getLabelWidth(relation.title),
-        height: conf.labelHeight * getRows(relation.title).length,
+        height: conf.labelHeight * common.getRows(relation.title).length,
         labelpos: 'c'
       },
       'id' + cnt
@@ -254,7 +236,7 @@ const renderDoc = (doc, diagram, parentId, altBkg) => {
   graph.nodes().forEach(function(v) {
     if (typeof v !== 'undefined' && typeof graph.node(v) !== 'undefined') {
       logger.warn('Node ' + v + ': ' + JSON.stringify(graph.node(v)));
-      d3.select('#' + svgElem.id + ' #' + v).attr(
+      select('#' + svgElem.id + ' #' + v).attr(
         'transform',
         'translate(' +
           (graph.node(v).x - graph.node(v).width / 2) +
@@ -264,7 +246,7 @@ const renderDoc = (doc, diagram, parentId, altBkg) => {
             graph.node(v).height / 2) +
           ' )'
       );
-      d3.select('#' + svgElem.id + ' #' + v).attr(
+      select('#' + svgElem.id + ' #' + v).attr(
         'data-x-shift',
         graph.node(v).x - graph.node(v).width / 2
       );

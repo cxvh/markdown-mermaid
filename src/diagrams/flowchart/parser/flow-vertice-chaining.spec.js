@@ -10,8 +10,9 @@ describe('when parsing flowcharts', function() {
   beforeEach(function() {
     flow.parser.yy = flowDb;
     flow.parser.yy.clear();
+    flow.parser.yy.setGen('gen-2');
   });
-
+  
   it('should handle chaining of vertices', function() {
     const res = flow.parser.parse(`
     graph TD
@@ -27,11 +28,11 @@ describe('when parsing flowcharts', function() {
     expect(edges.length).toBe(2);
     expect(edges[0].start).toBe('A');
     expect(edges[0].end).toBe('B');
-    expect(edges[0].type).toBe('arrow');
+    expect(edges[0].type).toBe('arrow_point');
     expect(edges[0].text).toBe('');
     expect(edges[1].start).toBe('B');
     expect(edges[1].end).toBe('C');
-    expect(edges[1].type).toBe('arrow');
+    expect(edges[1].type).toBe('arrow_point');
     expect(edges[1].text).toBe('');
   });
   it('should handle chaining of vertices', function() {
@@ -49,11 +50,11 @@ describe('when parsing flowcharts', function() {
     expect(edges.length).toBe(2);
     expect(edges[0].start).toBe('A');
     expect(edges[0].end).toBe('C');
-    expect(edges[0].type).toBe('arrow');
+    expect(edges[0].type).toBe('arrow_point');
     expect(edges[0].text).toBe('');
     expect(edges[1].start).toBe('B');
     expect(edges[1].end).toBe('C');
-    expect(edges[1].type).toBe('arrow');
+    expect(edges[1].type).toBe('arrow_point');
     expect(edges[1].text).toBe('');
   });
   it('should multiple vertices in link statement in the begining', function() {
@@ -71,11 +72,11 @@ describe('when parsing flowcharts', function() {
     expect(edges.length).toBe(2);
     expect(edges[0].start).toBe('A');
     expect(edges[0].end).toBe('B');
-    expect(edges[0].type).toBe('arrow');
+    expect(edges[0].type).toBe('arrow_point');
     expect(edges[0].text).toBe('');
     expect(edges[1].start).toBe('A');
     expect(edges[1].end).toBe('C');
-    expect(edges[1].type).toBe('arrow');
+    expect(edges[1].type).toBe('arrow_point');
     expect(edges[1].text).toBe('');
   });
   it('should multiple vertices in link statement at the end', function() {
@@ -94,19 +95,19 @@ describe('when parsing flowcharts', function() {
     expect(edges.length).toBe(4);
     expect(edges[0].start).toBe('A');
     expect(edges[0].end).toBe('C');
-    expect(edges[0].type).toBe('arrow');
+    expect(edges[0].type).toBe('arrow_point');
     expect(edges[0].text).toBe('');
     expect(edges[1].start).toBe('A');
     expect(edges[1].end).toBe('D');
-    expect(edges[1].type).toBe('arrow');
+    expect(edges[1].type).toBe('arrow_point');
     expect(edges[1].text).toBe('');
     expect(edges[2].start).toBe('B');
     expect(edges[2].end).toBe('C');
-    expect(edges[2].type).toBe('arrow');
+    expect(edges[2].type).toBe('arrow_point');
     expect(edges[2].text).toBe('');
     expect(edges[3].start).toBe('B');
     expect(edges[3].end).toBe('D');
-    expect(edges[3].type).toBe('arrow');
+    expect(edges[3].type).toBe('arrow_point');
     expect(edges[3].text).toBe('');
   });
   it('should handle chaining of vertices at both ends at once', function() {
@@ -125,19 +126,19 @@ describe('when parsing flowcharts', function() {
     expect(edges.length).toBe(4);
     expect(edges[0].start).toBe('A');
     expect(edges[0].end).toBe('C');
-    expect(edges[0].type).toBe('arrow');
+    expect(edges[0].type).toBe('arrow_point');
     expect(edges[0].text).toBe('');
     expect(edges[1].start).toBe('A');
     expect(edges[1].end).toBe('D');
-    expect(edges[1].type).toBe('arrow');
+    expect(edges[1].type).toBe('arrow_point');
     expect(edges[1].text).toBe('');
     expect(edges[2].start).toBe('B');
     expect(edges[2].end).toBe('C');
-    expect(edges[2].type).toBe('arrow');
+    expect(edges[2].type).toBe('arrow_point');
     expect(edges[2].text).toBe('');
     expect(edges[3].start).toBe('B');
     expect(edges[3].end).toBe('D');
-    expect(edges[3].type).toBe('arrow');
+    expect(edges[3].type).toBe('arrow_point');
     expect(edges[3].text).toBe('');
   });
   it('should handle chaining and multiple nodes in in link statement FVC ', function() {
@@ -157,27 +158,27 @@ describe('when parsing flowcharts', function() {
     expect(edges.length).toBe(6);
     expect(edges[0].start).toBe('A');
     expect(edges[0].end).toBe('B');
-    expect(edges[0].type).toBe('arrow');
+    expect(edges[0].type).toBe('arrow_point');
     expect(edges[0].text).toBe('');
     expect(edges[1].start).toBe('A');
     expect(edges[1].end).toBe('B2');
-    expect(edges[1].type).toBe('arrow');
+    expect(edges[1].type).toBe('arrow_point');
     expect(edges[1].text).toBe('');
     expect(edges[2].start).toBe('A');
     expect(edges[2].end).toBe('C');
-    expect(edges[2].type).toBe('arrow');
+    expect(edges[2].type).toBe('arrow_point');
     expect(edges[2].text).toBe('');
     expect(edges[3].start).toBe('B');
     expect(edges[3].end).toBe('D2');
-    expect(edges[3].type).toBe('arrow');
+    expect(edges[3].type).toBe('arrow_point');
     expect(edges[3].text).toBe('');
     expect(edges[4].start).toBe('B2');
     expect(edges[4].end).toBe('D2');
-    expect(edges[4].type).toBe('arrow');
+    expect(edges[4].type).toBe('arrow_point');
     expect(edges[4].text).toBe('');
     expect(edges[5].start).toBe('C');
     expect(edges[5].end).toBe('D2');
-    expect(edges[5].type).toBe('arrow');
+    expect(edges[5].type).toBe('arrow_point');
     expect(edges[5].text).toBe('');
   });
   it('should handle chaining and multiple nodes in in link statement with extra info in statements', function() {
@@ -203,19 +204,19 @@ describe('when parsing flowcharts', function() {
     expect(edges.length).toBe(4);
     expect(edges[0].start).toBe('A');
     expect(edges[0].end).toBe('B');
-    expect(edges[0].type).toBe('arrow');
+    expect(edges[0].type).toBe('arrow_point');
     expect(edges[0].text).toBe('hello');
     expect(edges[1].start).toBe('A');
     expect(edges[1].end).toBe('C');
-    expect(edges[1].type).toBe('arrow');
+    expect(edges[1].type).toBe('arrow_point');
     expect(edges[1].text).toBe('hello');
     expect(edges[2].start).toBe('B');
     expect(edges[2].end).toBe('D');
-    expect(edges[2].type).toBe('arrow');
+    expect(edges[2].type).toBe('arrow_point');
     expect(edges[2].text).toBe('');
     expect(edges[3].start).toBe('C');
     expect(edges[3].end).toBe('D');
-    expect(edges[3].type).toBe('arrow');
+    expect(edges[3].type).toBe('arrow_point');
     expect(edges[3].text).toBe('');
   });
 });

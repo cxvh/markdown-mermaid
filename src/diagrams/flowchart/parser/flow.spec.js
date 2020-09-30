@@ -23,7 +23,7 @@ describe('when parsing ', function() {
     expect(edges.length).toBe(2);
     expect(edges[0].start).toBe('A');
     expect(edges[0].end).toBe('B');
-    expect(edges[0].type).toBe('arrow');
+    expect(edges[0].type).toBe('arrow_point');
     expect(edges[0].text).toBe('');
   });
 
@@ -135,5 +135,15 @@ describe('when parsing ', function() {
     console.log(vertices);
     const classes = flow.parser.yy.getClasses();
     expect(vertices['A'].id).toBe('A');
+  });
+  it('should be possible to use numbers as labels', function() {
+    let statement = '';
+
+    statement = statement + 'graph TB;subgraph "number as labels";1;end;';
+    const res = flow.parser.parse(statement);
+    const vertices = flow.parser.yy.getVertices();
+    console.log(vertices);
+    const classes = flow.parser.yy.getClasses();
+    expect(vertices['1'].id).toBe('1');
   });
 });

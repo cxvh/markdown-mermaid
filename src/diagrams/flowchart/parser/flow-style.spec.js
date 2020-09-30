@@ -10,6 +10,7 @@ describe('[Style] when parsing', () => {
   beforeEach(function() {
     flow.parser.yy = flowDb;
     flow.parser.yy.clear();
+    flow.parser.yy.setGen('gen-2');
   });
 
   // log.debug(flow.parser.parse('graph TD;style Q background:#fff;'));
@@ -273,7 +274,7 @@ describe('[Style] when parsing', () => {
     const vert = flow.parser.yy.getVertices();
     const edges = flow.parser.yy.getEdges();
 
-    expect(edges[0].type).toBe('arrow');
+    expect(edges[0].type).toBe('arrow_point');
   });
 
   it('should handle multi-numbered style definitons with more then 1 digit in a row', function() {
@@ -297,7 +298,7 @@ describe('[Style] when parsing', () => {
     const vert = flow.parser.yy.getVertices();
     const edges = flow.parser.yy.getEdges();
 
-    expect(edges[0].type).toBe('arrow');
+    expect(edges[0].type).toBe('arrow_point');
   });
 
   it('should handle classDefs with style in classes', function() {
@@ -306,7 +307,7 @@ describe('[Style] when parsing', () => {
     const vert = flow.parser.yy.getVertices();
     const edges = flow.parser.yy.getEdges();
 
-    expect(edges[0].type).toBe('arrow');
+    expect(edges[0].type).toBe('arrow_point');
   });
 
   it('should handle classDefs with % in classes', function() {
@@ -317,6 +318,6 @@ describe('[Style] when parsing', () => {
     const vert = flow.parser.yy.getVertices();
     const edges = flow.parser.yy.getEdges();
 
-    expect(edges[0].type).toBe('arrow');
+    expect(edges[0].type).toBe('arrow_point');
   });
 });

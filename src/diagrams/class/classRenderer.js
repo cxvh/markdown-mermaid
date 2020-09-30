@@ -1,14 +1,16 @@
-import * as d3 from 'd3';
+import { select } from 'd3';
 import dagre from 'dagre';
 import graphlib from 'graphlib';
 import { logger } from '../../logger';
 import classDb, { lookUpDomId } from './classDb';
 import { parser } from './parser/classDiagram';
 import svgDraw from './svgDraw';
+import { configureSvgSize } from '../../utils';
 
 parser.yy = classDb;
 
 let idCache = {};
+const padding = 20;
 
 const conf = {
   dividerMargin: 10,
@@ -155,7 +157,8 @@ export const draw = function(text, id) {
   logger.info('Rendering diagram ' + text);
 
   // Fetch the default direction, use TD if none was found
-  const diagram = d3.select(`[id='${id}']`);
+  const diagram = select(`[id='${id}']`);
+  diagram.attr('xmlns:xlink', 'http://www.w3.org/1999/xlink');
   insertMarkers(diagram);
 
   // Layout graph, Create a new directed graph
@@ -175,6 +178,7 @@ export const draw = function(text, id) {
 
   const classes = classDb.getClasses();
   const keys = Object.keys(classes);
+
   for (let i = 0; i < keys.length; i++) {
     const classDef = classes[keys[i]];
     const node = svgDraw.drawClass(diagram, classDef, conf);
@@ -207,7 +211,7 @@ export const draw = function(text, id) {
   g.nodes().forEach(function(v) {
     if (typeof v !== 'undefined' && typeof g.node(v) !== 'undefined') {
       logger.debug('Node ' + v + ': ' + JSON.stringify(g.node(v)));
-      d3.select('#' + lookUpDomId(v)).attr(
+      select('#' + lookUpDomId(v)).attr(
         'transform',
         'translate(' +
           (g.node(v).x - g.node(v).width / 2) +
@@ -225,9 +229,16 @@ export const draw = function(text, id) {
     }
   });
 
-  diagram.attr('height', g.graph().height + 40);
-  diagram.attr('width', g.graph().width * 1.5 + 20);
-  diagram.attr('viewBox', '-10 -10 ' + (g.graph().width + 20) + ' ' + (g.graph().height + 20));
+  const svgBounds = diagram.node().getBBox();
+  const width = svgBounds.width + padding * 2;
+  const height = svgBounds.height + padding * 2;
+
+  configureSvgSize(diagram, height, width, conf.useMaxWidth);
+
+  // Ensure the viewBox includes the whole svgBounds area with extra space for padding
+  const vBox = `${svgBounds.x - padding} ${svgBounds.y - padding} ${width} ${height}`;
+  logger.debug(`viewBox ${vBox}`);
+  diagram.attr('viewBox', vBox);
 };
 
 export default {
